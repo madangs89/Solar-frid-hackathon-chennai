@@ -1,5 +1,10 @@
 import React from "react";
-import { LineChart, Line, ResponsiveContainer, CartesianGrid } from "recharts";
+import {
+  LineChart,
+  Line,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
 import { Zap, Activity, Battery, Heart } from "lucide-react";
 
@@ -14,31 +19,35 @@ const spark = [
 ];
 
 const power = [
-  { t: "", actual: 60, expected: 90 },
-  { t: "", actual: 62, expected: 88 },
-  { t: "", actual: 61, expected: 89 },
-  { t: "", actual: 65, expected: 90 },
-  { t: "", actual: 64, expected: 88 },
-  { t: "", actual: 66, expected: 90 },
-  { t: "", actual: 67, expected: 91 },
+  { actual: 60, expected: 90 },
+  { actual: 62, expected: 88 },
+  { actual: 61, expected: 89 },
+  { actual: 65, expected: 90 },
+  { actual: 64, expected: 88 },
+  { actual: 66, expected: 90 },
+  { actual: 67, expected: 91 },
 ];
 
 function StatCard({ icon: Icon, title, value, unit, change, color }) {
   return (
-    <div className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-4 flex flex-col justify-between">
+    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-4 md:p-5 hover:bg-white/10 transition flex flex-col justify-between">
+
       <div className="flex items-center gap-2 text-xs text-gray-400">
-        <Icon size={14} />
+        <Icon size={16} />
         {title}
       </div>
 
-      <div className="text-2xl font-semibold mt-2">
+      <div className="text-2xl md:text-3xl font-semibold mt-3 text-white">
         {value}
         <span className="text-sm text-gray-400 ml-1">{unit}</span>
       </div>
 
-      <div className="flex items-center justify-between mt-3">
+      <div className="flex justify-between items-center mt-4">
+
         <span
-          className={`text-xs ${change > 0 ? "text-green-400" : "text-red-400"}`}
+          className={`text-xs ${
+            change > 0 ? "text-green-400" : "text-red-400"
+          }`}
         >
           {change > 0 ? "▲" : "▼"} {Math.abs(change)}%
         </span>
@@ -50,6 +59,7 @@ function StatCard({ icon: Icon, title, value, unit, change, color }) {
             </LineChart>
           </ResponsiveContainer>
         </div>
+
       </div>
     </div>
   );
@@ -57,215 +67,289 @@ function StatCard({ icon: Icon, title, value, unit, change, color }) {
 
 export default function Dashboard() {
   return (
-    <div className="space-y-6">
-      {/* system bar */}
+    <div className="relative min-h-screen w-full overflow-hidden bg-black font-['Manrope']">
 
-      <div className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-4 py-3 flex flex-col md:flex-row md:justify-between">
-        <div className="text-green-400 text-sm">
-          ● SYSTEM HEALTHY
-          <span className="text-gray-400 ml-3 text-xs">
-            Device: Microgrid Alpha · 12 Panels Active
-          </span>
-        </div>
+      {/* background image */}
+      <img
+        src="https://karim-saab.com/images/Frame-4_1.avif"
+        className="absolute inset-0 w-full h-full object-cover scale-105"
+        alt=""
+      />
 
-        <div className="text-xs text-gray-400">
-          Voltage: <span className="text-white">18.75V</span> · Updated just now
-        </div>
-      </div>
+      {/* dark overlay */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
 
-      {/* stat cards */}
+      {/* ambient lights */}
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-green-500/10 blur-[150px] rounded-full"></div>
+      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-blue-500/10 blur-[150px] rounded-full"></div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <StatCard
-          icon={Zap}
-          title="Voltage"
-          value="18.75"
-          unit="V"
-          change={1.2}
-          color="#22c55e"
-        />
+      <div className="relative z-20 max-w-[1400px] mx-auto px-5 md:px-8 py-8 space-y-8">
 
-        <StatCard
-          icon={Activity}
-          title="Current"
-          value="3.29"
-          unit="A"
-          change={-0.8}
-          color="#9ca3af"
-        />
+        {/* system status */}
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 flex flex-col md:flex-row md:justify-between gap-2">
 
-        <StatCard
-          icon={Zap}
-          title="Power Output"
-          value="60"
-          unit="W"
-          change={-2.1}
-          color="#ef4444"
-        />
-
-        <StatCard
-          icon={Battery}
-          title="Expected Power"
-          value="122"
-          unit="W"
-          change={0.3}
-          color="#22c55e"
-        />
-
-        <StatCard
-          icon={Heart}
-          title="Health Score"
-          value="73"
-          unit=""
-          change={-1.3}
-          color="#9ca3af"
-        />
-      </div>
-
-      {/* main grid */}
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* power generation */}
-
-        <div className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-5">
-          <div className="flex justify-between mb-4">
-            <div>
-              <h3 className="text-sm text-white">Power Generation</h3>
-              <p className="text-xs text-gray-500">Real-time · 30 min window</p>
-            </div>
-
-            <span className="text-xs bg-[#1a1a1a] px-2 py-1 rounded">Live</span>
+          <div className="text-green-400 text-sm tracking-wide">
+            ● SYSTEM HEALTHY
+            <span className="text-gray-400 ml-3 text-xs">
+              Device: Microgrid Alpha · 12 Panels Active
+            </span>
           </div>
 
-          <div className="h-52">
-            <ResponsiveContainer>
-              <LineChart data={power}>
-                <CartesianGrid stroke="#222" strokeDasharray="3 3" />
-
-                <Line
-                  dataKey="actual"
-                  stroke="#e5e5e5"
-                  strokeWidth={2}
-                  dot={false}
-                />
-
-                <Line
-                  dataKey="expected"
-                  stroke="#6b7280"
-                  strokeDasharray="4 4"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="text-xs text-gray-400">
+            Voltage <span className="text-white">18.75V</span> · Updated just now
           </div>
+
         </div>
 
-        {/* efficiency */}
+        {/* stat cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
 
-        <div className="space-y-4">
-          <div className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-5">
-            <h3 className="text-sm text-white mb-3">Solar Efficiency</h3>
+          <StatCard
+            icon={Zap}
+            title="Voltage"
+            value="18.75"
+            unit="V"
+            change={1.2}
+            color="#22c55e"
+          />
 
-            <div className="text-3xl text-yellow-400 font-semibold">67%</div>
+          <StatCard
+            icon={Activity}
+            title="Current"
+            value="3.29"
+            unit="A"
+            change={-0.8}
+            color="#9ca3af"
+          />
 
-            <div className="w-full bg-[#1a1a1a] h-2 rounded mt-3">
-              <div className="bg-yellow-500 h-2 rounded w-[67%]" />
-            </div>
+          <StatCard
+            icon={Zap}
+            title="Power Output"
+            value="60"
+            unit="W"
+            change={-2.1}
+            color="#ef4444"
+          />
 
-            <div className="flex justify-between text-xs text-gray-500 mt-2">
-              <span className="text-red-400">CRITICAL &lt;60</span>
+          <StatCard
+            icon={Battery}
+            title="Expected Power"
+            value="122"
+            unit="W"
+            change={0.3}
+            color="#22c55e"
+          />
 
-              <span className="text-yellow-400">WARN 60-80</span>
+          <StatCard
+            icon={Heart}
+            title="Health Score"
+            value="73"
+            unit=""
+            change={-1.3}
+            color="#9ca3af"
+          />
 
-              <span className="text-green-400">GOOD 80+</span>
-            </div>
-          </div>
+        </div>
 
-          {/* health factors */}
+        {/* charts section */}
+        <div className="grid lg:grid-cols-2 gap-6">
 
-          <div className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-5 space-y-4">
-            <h3 className="text-sm text-white">Health Factors</h3>
+          {/* power chart */}
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-5 md:p-6">
 
-            {[
-              { label: "Efficiency", value: 67 },
-              { label: "Sensor Confidence", value: 88 },
-              { label: "Battery Level", value: 71 },
-              { label: "Connectivity", value: 99 },
-            ].map((i) => (
-              <div key={i.label}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span>{i.label}</span>
-                  <span>{i.value}%</span>
-                </div>
+            <div className="flex justify-between items-center mb-4">
 
-                <div className="w-full bg-[#1a1a1a] h-2 rounded">
-                  <div
-                    className="bg-green-500 h-2 rounded"
-                    style={{ width: `${i.value}%` }}
-                  />
-                </div>
+              <div>
+                <h3 className="text-white text-sm">
+                  Power Generation
+                </h3>
+
+                <p className="text-xs text-gray-400">
+                  Real-time monitoring · 30 min window
+                </p>
               </div>
-            ))}
+
+              <span className="text-xs bg-green-500/10 text-green-400 px-3 py-1 rounded-full">
+                LIVE
+              </span>
+
+            </div>
+
+            <div className="h-56">
+
+              <ResponsiveContainer>
+                <LineChart data={power}>
+
+                  <CartesianGrid
+                    stroke="#2a2a2a"
+                    strokeDasharray="3 3"
+                  />
+
+                  <Line
+                    dataKey="actual"
+                    stroke="#22c55e"
+                    strokeWidth={3}
+                    dot={false}
+                  />
+
+                  <Line
+                    dataKey="expected"
+                    stroke="#6b7280"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    dot={false}
+                  />
+
+                </LineChart>
+              </ResponsiveContainer>
+
+            </div>
+
           </div>
-        </div>
-      </div>
 
-      {/* bottom grid */}
+          {/* efficiency + health */}
+          <div className="space-y-6">
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* alerts */}
+            {/* efficiency */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-5">
 
-        <div className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-5">
-          <h3 className="text-sm text-white mb-4">AI Smart Alerts</h3>
+              <h3 className="text-white text-sm mb-3">
+                Solar Efficiency
+              </h3>
 
-          <div className="space-y-4">
-            <div className="border-l-2 border-yellow-400 pl-3">
-              <p className="text-yellow-400 text-sm">Efficiency Alert</p>
-              <p className="text-xs text-gray-400">
-                Panel efficiency dropped below 60% threshold
-              </p>
+              <div className="text-4xl text-yellow-400 font-semibold">
+                67%
+              </div>
+
+              <div className="w-full bg-black/40 h-3 rounded mt-4 overflow-hidden">
+
+                <div
+                  className="bg-yellow-500 h-3 rounded shadow-[0_0_20px_#facc15]"
+                  style={{ width: "67%" }}
+                />
+
+              </div>
+
+              <div className="flex justify-between text-xs text-gray-400 mt-3">
+                <span className="text-red-400">CRITICAL</span>
+                <span className="text-yellow-400">WARN</span>
+                <span className="text-green-400">GOOD</span>
+              </div>
+
             </div>
 
-            <div className="border-l-2 border-red-500 pl-3">
-              <p className="text-red-400 text-sm">Voltage Spike</p>
-              <p className="text-xs text-gray-400">
-                Voltage exceeded 22V — possible inverter issue
-              </p>
+            {/* health factors */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-5 space-y-4">
+
+              <h3 className="text-white text-sm">
+                Health Factors
+              </h3>
+
+              {[
+                { label: "Efficiency", value: 67 },
+                { label: "Sensor Confidence", value: 88 },
+                { label: "Battery Level", value: 71 },
+                { label: "Connectivity", value: 99 },
+              ].map((i) => (
+
+                <div key={i.label}>
+
+                  <div className="flex justify-between text-xs mb-1">
+                    <span>{i.label}</span>
+                    <span>{i.value}%</span>
+                  </div>
+
+                  <div className="w-full bg-black/40 h-2 rounded">
+
+                    <div
+                      className="bg-green-500 h-2 rounded"
+                      style={{ width: `${i.value}%` }}
+                    />
+
+                  </div>
+
+                </div>
+
+              ))}
+
             </div>
 
-            <div className="border-l-2 border-gray-500 pl-3">
-              <p className="text-gray-300 text-sm">Dust Accumulation</p>
-              <p className="text-xs text-gray-400">
-                Output reduced by 32% — cleaning recommended
-              </p>
-            </div>
           </div>
+
         </div>
 
-        {/* ai assistant */}
+        {/* bottom section */}
+        <div className="grid lg:grid-cols-2 gap-6">
 
-        <div className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-5 flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm text-white mb-3">
+          {/* alerts */}
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-5">
+
+            <h3 className="text-white text-sm mb-4">
+              AI Smart Alerts
+            </h3>
+
+            <div className="space-y-4">
+
+              <div className="border-l-2 border-yellow-400 pl-3">
+                <p className="text-yellow-400 text-sm">
+                  Efficiency Alert
+                </p>
+                <p className="text-xs text-gray-400">
+                  Panel efficiency dropped below 60%
+                </p>
+              </div>
+
+              <div className="border-l-2 border-red-500 pl-3">
+                <p className="text-red-400 text-sm">
+                  Voltage Spike
+                </p>
+                <p className="text-xs text-gray-400">
+                  Voltage exceeded 22V — possible inverter issue
+                </p>
+              </div>
+
+              <div className="border-l-2 border-gray-500 pl-3">
+                <p className="text-gray-300 text-sm">
+                  Dust Accumulation
+                </p>
+                <p className="text-xs text-gray-400">
+                  Output reduced by 32% — cleaning recommended
+                </p>
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* ai assistant */}
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-5 flex flex-col">
+
+            <h3 className="text-sm text-white mb-4">
               ● AI Microgrid Assistant
             </h3>
 
-            <div className="bg-[#161616] rounded-lg p-3 text-xs text-gray-300">
-              Hello! I'm your AI Microgrid Assistant. Ask me anything about your
-              solar system performance, alerts, or maintenance needs.
+            <div className="bg-black/40 border border-white/10 rounded-lg p-4 text-sm text-gray-300">
+              Hello! I'm monitoring your solar microgrid in real time.
+              Ask about system performance, alerts, or maintenance predictions.
             </div>
+
+            <div className="flex gap-2 mt-4">
+
+              <input
+                placeholder="Ask about your microgrid..."
+                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm"
+              />
+
+              <button className="bg-white text-black px-4 rounded-lg hover:scale-105 transition">
+                ➤
+              </button>
+
+            </div>
+
           </div>
 
-          <div className="flex gap-2 mt-4">
-            <input
-              placeholder="Ask about your microgrid..."
-              className="flex-1 bg-[#161616] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm"
-            />
-
-            <button className="bg-white text-black px-4 rounded-lg">➤</button>
-          </div>
         </div>
+
       </div>
     </div>
   );
