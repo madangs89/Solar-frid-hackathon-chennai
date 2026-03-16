@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { io } from "socket.io-client";
 
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { gsap } from "gsap";
 
 import Login from "../components/Login";
 import AnimatedButton from "../components/AnimatedButton";
 import Cursor from "../components/Cursor";
+import { useSelector } from "react-redux";
 
 const Hero = () => {
   const navigate = useNavigate();
@@ -18,6 +19,16 @@ const Hero = () => {
   const btnRef = useRef(null);
   const leftRef = useRef(null);
   const rightRef = useRef(null);
+
+  const location = useLocation();
+
+  const authSlice = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (location.pathname == "/" && authSlice.isAuth) {
+      navigate("/dashboard");
+    }
+  }, [authSlice, location, navigate]);
 
   useEffect(() => {
     gsap.to(leftRef.current, {

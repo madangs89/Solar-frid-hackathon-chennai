@@ -21,7 +21,7 @@ const Navbar = () => {
         {/* Nav Links */}
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/dashboard")}
             className={({ isActive }) =>
               `${linkStyle} ${isActive ? activeStyle : ""}`
             }
