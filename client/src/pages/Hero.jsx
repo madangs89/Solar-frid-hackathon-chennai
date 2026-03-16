@@ -154,7 +154,7 @@ const Hero = () => {
               onClick={() => {}}
               text={"START EXPERIENCE"}
               px={6}
-              py={6}
+              py={3}
             />
           </div>
         </div>

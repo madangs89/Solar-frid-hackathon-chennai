@@ -5,11 +5,15 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 import { toast } from "react-hot-toast";
+import { useDispatch } from "react-redux";
+import { setAuth, setUser } from "../redux/Slice/authSlice";
 
 export default function Login({ onClose }) {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const navigate = useNavigate();
+
+  const dispatch = useDispatch();
 
   const handleGoogleLogin = async (obj) => {
     console.log(obj);
@@ -25,15 +29,12 @@ export default function Login({ onClose }) {
       );
       console.log(data);
       if (data.success) {
-        // dispatch(setAuth(true));
-        // data.isAuth = true;
-        // dispatch(setUser(data));
-        // toast.success("Login Success");
+        toast.success("Login Success");
 
-        // dispatch(setAuth(true));
-        // dispatch(setUser(data.user));
+        dispatch(setAuth(true));
+        dispatch(setUser(data.user));
 
-        // navigate("/home");
+        navigate("/dashboard");
 
         console.log(data);
       }
