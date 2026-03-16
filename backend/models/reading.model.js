@@ -16,6 +16,10 @@ const ReadingSchema = new mongoose.Schema({
 
   efficiency: Number,
 
+  temperature: Number,
+  irradiance: Number,
+  trust_score: Number,
+
   confidence: Number,
 
   healthScore: Number,
