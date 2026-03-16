@@ -26,7 +26,7 @@ const MainLayout = () => {
   return (
     <div className="min-h-screen bg-black text-white">
       <Navbar />
-      <div className="p-6">
+      <div>
         <Outlet />
       </div>
     </div>
