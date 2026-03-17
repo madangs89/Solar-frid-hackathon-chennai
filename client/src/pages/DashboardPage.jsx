@@ -4,27 +4,7 @@ import { LineChart, Line, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Zap, Activity, Battery, Heart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-
-const spark = [
-  { v: 40 },
-  { v: 45 },
-  { v: 43 },
-  { v: 50 },
-  { v: 48 },
-  { v: 55 },
-  { v: 52 },
-];
-
-/* renamed to avoid conflict */
-const powerChartData = [
-  { actual: 60, expected: 90 },
-  { actual: 62, expected: 88 },
-  { actual: 61, expected: 89 },
-  { actual: 65, expected: 90 },
-  { actual: 64, expected: 88 },
-  { actual: 66, expected: 90 },
-  { actual: 67, expected: 91 },
-];
+import { useParams } from "react-router-dom";
 
 const getChange = (key, history) => {
   if (history == undefined) return 0;
@@ -90,7 +70,8 @@ function StatCard({
 export default function Dashboard() {
   const socketSlice = useSelector((state) => state.socket);
 
-  /* SINGLE STATE */
+  const params = useParams();
+
   const [metrics, setMetrics] = useState({
     voltage: 0,
     current: 0,
@@ -116,6 +97,10 @@ export default function Dashboard() {
       const dataFromSocket = typeof data === "string" ? JSON.parse(data) : data;
 
       let parsed = dataFromSocket.latest;
+
+      const deviceId = dataFromSocket.latest.deviceId;
+
+      if (deviceId != params.id) return;
       setMetrics({
         voltage: parsed.voltage || 0,
         current: parsed.current || 0,

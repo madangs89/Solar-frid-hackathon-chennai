@@ -110,3 +110,41 @@ export const logout = (req, res) => {
       .json({ message: "Something went wrong", success: false });
   }
 };
+
+export const updateCurrentStation = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const { currentStation } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized",
+        success: false,
+      });
+    }
+
+    if (!currentStation) {
+      return res.status(400).json({
+        message: "Current station is required",
+        success: false,
+      });
+    }
+
+    const userDetails = await User.findById(userId);
+
+    userDetails.currentStation = currentStation;
+
+    await userDetails.save();
+
+    return res.status(201).json({
+      message: "Successfully created",
+      success: true,
+      user: userDetails,
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Something went wrong", success: false });
+  }
+};

@@ -6,6 +6,7 @@ export const authSlice = createSlice({
     isAuth: false,
     user: null,
     currentWorkinId: null,
+    array: [],
   },
   reducers: {
     setAuth: (state, action) => {
@@ -17,10 +18,14 @@ export const authSlice = createSlice({
     setCurrentWorkingId: (state, action) => {
       state.currentWorkinId = action.payload;
     },
+    setArray: (state, action) => {
+      state.array = action.payload;
+    },
   },
 });
 
-export const { setAuth, setUser, setCurrentWorkingId } = authSlice.actions;
+export const { setAuth, setUser, setCurrentWorkingId, setArray } =
+  authSlice.actions;
 
 const authReducer = authSlice.reducer;
 

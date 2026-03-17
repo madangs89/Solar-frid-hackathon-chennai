@@ -82,7 +82,7 @@ const App = () => {
         <Route index element={<Hero />} />
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<StationDashboard />} />
-          <Route path="/devices" element={<DevicesPage />} />
+          <Route path="/array/:id" element={<Dashboard />} />
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/logs" element={<LogsPage />} />
         </Route>

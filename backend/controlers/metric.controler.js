@@ -125,6 +125,8 @@ export const addMetric = async (req, res) => {
       panelCapacity,
       battery,
       connectivity,
+      deviceId,
+      userId,
     };
     io.to(userId).emit("metric", { latest: currentMetricPayload, history });
 

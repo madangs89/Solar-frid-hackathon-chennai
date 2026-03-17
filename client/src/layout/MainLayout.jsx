@@ -24,9 +24,9 @@ const MainLayout = () => {
   }, [authSlice.isAuth]);
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="h-screen overflow-hidden bg-black text-white">
       <Navbar />
-      <div>
+      <div className="h-screen overflow-y-scroll  pb-10">
         <Outlet />
       </div>
     </div>

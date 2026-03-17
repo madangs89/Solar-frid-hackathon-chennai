@@ -1,25 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-/* 🔥 MOCK DATA */
-const arrays = Array.from({ length: 24 }, (_, i) => {
-  const efficiency = Math.random();
-  const irradiance = 400 + Math.random() * 600;
-
-  const needsCleaning = efficiency < 0.6 && irradiance > 500;
-
-  return {
-    id: `array_${i + 1}`,
-    name: `A${i + 1}`,
-    power: (Math.random() * 300).toFixed(0),
-    efficiency,
-    status: needsCleaning
-      ? "cleaning"
-      : efficiency < 0.75
-        ? "warning"
-        : "healthy",
-  };
-});
+import { useDispatch, useSelector } from "react-redux";
+import axios from "axios";
+import { setArray } from "../redux/Slice/authSlice";
 
 /* 🎨 COLORS */
 const statusStyles = {
@@ -30,16 +13,58 @@ const statusStyles = {
 
 export default function SolarFieldView() {
   const navigate = useNavigate();
+  const auth = useSelector((state) => state.auth);
+
+  let arrays = useSelector((state) => state.auth.array);
+  const [loading, setLoading] = useState(true);
+  let dispatch = useDispatch();
+
+  useEffect(() => {
+    const fetchDevices = async () => {
+      try {
+        const stationId = auth?.user?.currentStation;
+        if (!stationId) return;
+
+        const res = await axios.get(
+          `${import.meta.env.VITE_BACKEND_URL}/api/device/all/${stationId}`,
+        );
+
+        const devices = res?.data?.devices || [];
+
+        /* 🔥 map devices → UI format */
+        const mapped = devices.map((d, i) => {
+          const efficiency = Math.random();
+          const irradiance = 400 + Math.random() * 600;
+
+          const needsCleaning = efficiency < 0.6 && irradiance > 500;
+
+          return {
+            id: d?._id || i,
+            name: d?.name || `Array ${i + 1}`,
+            power: (Math.random() * 300).toFixed(0),
+            efficiency,
+            status: needsCleaning
+              ? "cleaning"
+              : efficiency < 0.75
+                ? "warning"
+                : "healthy",
+          };
+        });
+        dispatch(setArray(mapped));
+      } catch (err) {
+        console.error("Device fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDevices();
+  }, [dispatch, auth?.user]);
 
   return (
     <div className="relative min-h-screen bg-black overflow-hidden font-['Manrope']">
-      {/* background */}
-      <img
-        src="https://karim-saab.com/images/Frame-4_1.avif"
-        className="absolute inset-0 w-full h-full object-cover opacity-30"
-        alt=""
-      />
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+      {/* 🔥 UPDATED BG (slightly cleaner) */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black via-[#050505] to-black"></div>
 
       {/* header */}
       <div className="relative z-20 px-8 py-6 text-white">
@@ -49,39 +74,46 @@ export default function SolarFieldView() {
         </p>
       </div>
 
+      {/* LOADER */}
+      {loading && (
+        <div className="text-center text-gray-400 mt-20">Loading panels...</div>
+      )}
+
       {/* FIELD */}
-      <div className="relative z-20 p-8 grid grid-cols-4 md:grid-cols-6 gap-6 max-w-[1200px] mx-auto">
-        {arrays.map((arr) => (
-          <div
-            key={arr.id}
-            onClick={() => navigate(`/array/${arr.id}`)}
-            className={`cursor-pointer rounded-lg border p-3 transition hover:scale-105 ${
-              statusStyles[arr.status]
-            }`}
-          >
-            {/* panel visual */}
-            <div className="w-full h-16 bg-gradient-to-br from-blue-400/30 to-blue-800/40 rounded-md mb-3 border border-white/10"></div>
+      {!loading && (
+        <div className="relative z-20 p-8 grid grid-cols-4 md:grid-cols-6 gap-6 max-w-[1200px] mx-auto">
+          {arrays.map((arr) => (
+            <div
+              key={arr.id}
+              onClick={() => navigate(`/array/${arr.id}`)}
+              className={`cursor-pointer rounded-lg border p-3 transition hover:scale-105 ${
+                statusStyles[arr.status]
+              }`}
+            >
+              {/* panel visual */}
+              <div className="w-full h-16 bg-gradient-to-br from-blue-400/30 to-blue-800/40 rounded-md mb-3 border border-white/10"></div>
 
-            {/* name */}
-            <div className="text-xs font-semibold">{arr.name}</div>
+              {/* name */}
+              <div className="text-xs font-semibold">{arr.name}</div>
 
-            {/* power */}
-            <div className="text-sm mt-1">⚡ {arr.power}W</div>
+              {/* power */}
+              <div className="text-sm mt-1">⚡ {arr.power}W</div>
 
-            {/* efficiency */}
-            <div className="text-xs text-gray-300">
-              {(arr.efficiency * 100).toFixed(0)}%
+              {/* efficiency */}
+              <div className="text-xs text-gray-300">
+                {(arr.efficiency * 100).toFixed(0)}%
+              </div>
+
+              {/* status */}
+              <div className="text-[10px] mt-1">
+                {arr.status === "healthy" && "✅ Good"}
+                {arr.status === "warning" && "⚠️ Low"}
+                {arr.status === "cleaning" && "🧹 Clean"}
+              </div>
             </div>
-
-            {/* status */}
-            <div className="text-[10px] mt-1">
-              {arr.status === "healthy" && "✅ Good"}
-              {arr.status === "warning" && "⚠️ Low"}
-              {arr.status === "cleaning" && "🧹 Clean"}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* legend */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-6 text-xs text-gray-300">
