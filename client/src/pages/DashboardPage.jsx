@@ -5,6 +5,7 @@ import { Zap, Activity, Battery, Heart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
+import axios from "axios";
 
 const getChange = (key, history) => {
   if (history == undefined) return 0;
@@ -123,6 +124,27 @@ export default function Dashboard() {
       socket.off("metric", handler);
     };
   }, [socketSlice.socket]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_BACKEND_URL}/api/device/get/single/${params.id}`,
+          {
+            withCredentials: true,
+          },
+        );
+
+        console.log(response.data.success);
+        if (response.data.success) {
+          setMetrics(response.data.device);
+          setHistory(response.data.history);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    })();
+  }, [params.id]);
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-black font-['Manrope']">
