@@ -18,6 +18,8 @@ const App = () => {
 
   const authSlice = useSelector((state) => state.auth);
 
+  const socketSlice = useSelector((state) => state.socket);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -54,12 +56,19 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    if (socketSlice.socket) {
+      return;
+    }
     if (authSlice.isAuth && authSlice.user._id) {
       const socket = io(import.meta.env.VITE_BACKEND_URL, {
         reconnectionDelayMax: 10000,
         auth: {
           token: authSlice.user._id,
         },
+      });
+
+      socket.on("connect", () => {
+        console.log("connected to server", socket.id);
       });
 
       dispatch(setSocket(socket));

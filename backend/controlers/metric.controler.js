@@ -13,6 +13,8 @@ export const addMetric = async (req, res) => {
       temperature = 0,
       irradiance = 0,
       trust_score = 0,
+      battery = 70, // default
+      connectivity = 90,
       deviceId,
       userId,
     } = data;
@@ -29,16 +31,15 @@ export const addMetric = async (req, res) => {
     let power = voltage * current;
     let expectedPower = panelCapacity * (irradiance / 1000);
     let timestamp = new Date();
-    let efficiency = power / expectedPower;
-    healthScore =
+    let efficiency = expectedPower > 0 ? power / expectedPower : 0;
+    let healthScore =
       0.4 * efficiency +
       0.3 * (trust_score * 100) +
       0.2 * battery +
       0.1 * connectivity;
 
-    const cachedValueFromRedis = await pubClient.hget(
-      `userId:${userId}:deviceId:${deviceId}`,
-    );
+    let key = `userId:${userId}:deviceId:${deviceId}`;
+    const cachedValueFromRedis = await pubClient.get(key);
 
     let parsed;
 
@@ -58,15 +59,15 @@ export const addMetric = async (req, res) => {
         trust_score,
         timestamp,
         panelCapacity,
+        battery,
+        connectivity,
       });
 
-      await pubClient.hset(
+      await pubClient.set(
         `userId:${userId}:deviceId:${deviceId}`,
         JSON.stringify(parsed),
       );
     } else {
-      let key = `userId:${userId}:deviceId:${deviceId}`;
-
       let payload = {
         deviceId,
         userId,
@@ -85,9 +86,11 @@ export const addMetric = async (req, res) => {
         trust_score,
         timestamp,
         panelCapacity,
+        battery,
+        connectivity,
       });
 
-      await pubClient.hset(key, JSON.stringify(payload));
+      await pubClient.set(key, JSON.stringify(payload));
     }
 
     // need to store this in redis
@@ -104,6 +107,8 @@ export const addMetric = async (req, res) => {
       trust_score,
       timestamp,
       panelCapacity,
+      battery,
+      connectivity,
     };
     io.to(userId).emit("metric", currentMetricPayload);
 

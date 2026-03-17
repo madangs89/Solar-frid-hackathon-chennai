@@ -1,12 +1,9 @@
 import React from "react";
-import {
-  LineChart,
-  Line,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
+import { LineChart, Line, ResponsiveContainer, CartesianGrid } from "recharts";
 
 import { Zap, Activity, Battery, Heart } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 
 const spark = [
   { v: 40 },
@@ -18,7 +15,8 @@ const spark = [
   { v: 52 },
 ];
 
-const power = [
+/* renamed to avoid conflict */
+const powerChartData = [
   { actual: 60, expected: 90 },
   { actual: 62, expected: 88 },
   { actual: 61, expected: 89 },
@@ -31,7 +29,6 @@ const power = [
 function StatCard({ icon: Icon, title, value, unit, change, color }) {
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-4 md:p-5 hover:bg-white/10 transition flex flex-col justify-between">
-
       <div className="flex items-center gap-2 text-xs text-gray-400">
         <Icon size={16} />
         {title}
@@ -43,7 +40,6 @@ function StatCard({ icon: Icon, title, value, unit, change, color }) {
       </div>
 
       <div className="flex justify-between items-center mt-4">
-
         <span
           className={`text-xs ${
             change > 0 ? "text-green-400" : "text-red-400"
@@ -59,16 +55,61 @@ function StatCard({ icon: Icon, title, value, unit, change, color }) {
             </LineChart>
           </ResponsiveContainer>
         </div>
-
       </div>
     </div>
   );
 }
 
 export default function Dashboard() {
+  const socketSlice = useSelector((state) => state.socket);
+
+  /* SINGLE STATE */
+  const [metrics, setMetrics] = useState({
+    voltage: 0,
+    current: 0,
+    power: 0,
+    expected_power: 0,
+    efficiency: 0,
+    health_score: 0,
+    temperature: 0,
+    irradiance: 0,
+    trust_score: 0,
+    battery: 0,
+    connectivity: 0,
+  });
+
+  useEffect(() => {
+    if (!socketSlice.socket) return;
+
+    const socket = socketSlice.socket;
+
+    const handler = (data) => {
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+
+      setMetrics({
+        voltage: parsed.voltage || 0,
+        current: parsed.current || 0,
+        power: parsed.power || 0,
+        expected_power: parsed.expected_power || 0,
+        efficiency: parsed.efficiency || 0,
+        health_score: parsed.health_score || 0,
+        temperature: parsed.temperature || 0,
+        irradiance: parsed.irradiance || 0,
+        trust_score: parsed.trust_score || 0,
+        battery: parsed.battery || 0,
+        connectivity: parsed.connectivity || 0,
+      });
+    };
+
+    socket.on("metric", handler);
+
+    return () => {
+      socket.off("metric", handler);
+    };
+  }, [socketSlice.socket]);
+
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-black font-['Manrope']">
-
       {/* background image */}
       <img
         src="https://karim-saab.com/images/Frame-4_1.avif"
@@ -84,10 +125,8 @@ export default function Dashboard() {
       <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-blue-500/10 blur-[150px] rounded-full"></div>
 
       <div className="relative z-20 max-w-[1400px] mx-auto px-5 md:px-8 py-8 space-y-8">
-
         {/* system status */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 flex flex-col md:flex-row md:justify-between gap-2">
-
           <div className="text-green-400 text-sm tracking-wide">
             ● SYSTEM HEALTHY
             <span className="text-gray-400 ml-3 text-xs">
@@ -96,18 +135,18 @@ export default function Dashboard() {
           </div>
 
           <div className="text-xs text-gray-400">
-            Voltage <span className="text-white">18.75V</span> · Updated just now
+            Voltage{" "}
+            <span className="text-white">{metrics.voltage.toFixed(2)}V</span> ·
+            Updated just now
           </div>
-
         </div>
 
         {/* stat cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-
           <StatCard
             icon={Zap}
             title="Voltage"
-            value="18.75"
+            value={metrics.voltage.toFixed(2)}
             unit="V"
             change={1.2}
             color="#22c55e"
@@ -116,7 +155,7 @@ export default function Dashboard() {
           <StatCard
             icon={Activity}
             title="Current"
-            value="3.29"
+            value={metrics.current.toFixed(2)}
             unit="A"
             change={-0.8}
             color="#9ca3af"
@@ -125,7 +164,7 @@ export default function Dashboard() {
           <StatCard
             icon={Zap}
             title="Power Output"
-            value="60"
+            value={metrics.power.toFixed(2)}
             unit="W"
             change={-2.1}
             color="#ef4444"
@@ -134,7 +173,7 @@ export default function Dashboard() {
           <StatCard
             icon={Battery}
             title="Expected Power"
-            value="122"
+            value={metrics.expected_power.toFixed(2)}
             unit="W"
             change={0.3}
             color="#22c55e"
@@ -143,27 +182,19 @@ export default function Dashboard() {
           <StatCard
             icon={Heart}
             title="Health Score"
-            value="73"
+            value={metrics.health_score.toFixed(2)}
             unit=""
             change={-1.3}
             color="#9ca3af"
           />
-
         </div>
 
         {/* charts section */}
         <div className="grid lg:grid-cols-2 gap-6">
-
-          {/* power chart */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-5 md:p-6">
-
             <div className="flex justify-between items-center mb-4">
-
               <div>
-                <h3 className="text-white text-sm">
-                  Power Generation
-                </h3>
-
+                <h3 className="text-white text-sm">Power Generation</h3>
                 <p className="text-xs text-gray-400">
                   Real-time monitoring · 30 min window
                 </p>
@@ -172,18 +203,12 @@ export default function Dashboard() {
               <span className="text-xs bg-green-500/10 text-green-400 px-3 py-1 rounded-full">
                 LIVE
               </span>
-
             </div>
 
             <div className="h-56">
-
               <ResponsiveContainer>
-                <LineChart data={power}>
-
-                  <CartesianGrid
-                    stroke="#2a2a2a"
-                    strokeDasharray="3 3"
-                  />
+                <LineChart data={powerChartData}>
+                  <CartesianGrid stroke="#2a2a2a" strokeDasharray="3 3" />
 
                   <Line
                     dataKey="actual"
@@ -199,35 +224,27 @@ export default function Dashboard() {
                     strokeDasharray="5 5"
                     dot={false}
                   />
-
                 </LineChart>
               </ResponsiveContainer>
-
             </div>
-
           </div>
 
           {/* efficiency + health */}
           <div className="space-y-6">
-
-            {/* efficiency */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-5">
-
-              <h3 className="text-white text-sm mb-3">
-                Solar Efficiency
-              </h3>
+              <h3 className="text-white text-sm mb-3">Solar Efficiency</h3>
 
               <div className="text-4xl text-yellow-400 font-semibold">
-                67%
+                {(metrics.efficiency * 100).toFixed(0)}%
               </div>
 
               <div className="w-full bg-black/40 h-3 rounded mt-4 overflow-hidden">
-
                 <div
                   className="bg-yellow-500 h-3 rounded shadow-[0_0_20px_#facc15]"
-                  style={{ width: "67%" }}
+                  style={{
+                    width: `${metrics.efficiency * 100}%`,
+                  }}
                 />
-
               </div>
 
               <div className="flex justify-between text-xs text-gray-400 mt-3">
@@ -235,106 +252,77 @@ export default function Dashboard() {
                 <span className="text-yellow-400">WARN</span>
                 <span className="text-green-400">GOOD</span>
               </div>
-
             </div>
 
-            {/* health factors */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-5 space-y-4">
-
-              <h3 className="text-white text-sm">
-                Health Factors
-              </h3>
+              <h3 className="text-white text-sm">Health Factors</h3>
 
               {[
-                { label: "Efficiency", value: 67 },
-                { label: "Sensor Confidence", value: 88 },
-                { label: "Battery Level", value: 71 },
-                { label: "Connectivity", value: 99 },
+                { label: "Efficiency", value: metrics.efficiency * 100 },
+                {
+                  label: "Sensor Confidence",
+                  value: metrics.trust_score * 100,
+                },
+                { label: "Battery Level", value: metrics.battery },
+                { label: "Connectivity", value: metrics.connectivity },
               ].map((i) => (
-
                 <div key={i.label}>
-
                   <div className="flex justify-between text-xs mb-1">
                     <span>{i.label}</span>
-                    <span>{i.value}%</span>
+                    <span>{i.value.toFixed(0)}%</span>
                   </div>
 
                   <div className="w-full bg-black/40 h-2 rounded">
-
                     <div
                       className="bg-green-500 h-2 rounded"
                       style={{ width: `${i.value}%` }}
                     />
-
                   </div>
-
                 </div>
-
               ))}
-
             </div>
-
           </div>
-
         </div>
 
         {/* bottom section */}
         <div className="grid lg:grid-cols-2 gap-6">
-
-          {/* alerts */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-5">
-
-            <h3 className="text-white text-sm mb-4">
-              AI Smart Alerts
-            </h3>
+            <h3 className="text-white text-sm mb-4">AI Smart Alerts</h3>
 
             <div className="space-y-4">
-
               <div className="border-l-2 border-yellow-400 pl-3">
-                <p className="text-yellow-400 text-sm">
-                  Efficiency Alert
-                </p>
+                <p className="text-yellow-400 text-sm">Efficiency Alert</p>
                 <p className="text-xs text-gray-400">
                   Panel efficiency dropped below 60%
                 </p>
               </div>
 
               <div className="border-l-2 border-red-500 pl-3">
-                <p className="text-red-400 text-sm">
-                  Voltage Spike
-                </p>
+                <p className="text-red-400 text-sm">Voltage Spike</p>
                 <p className="text-xs text-gray-400">
                   Voltage exceeded 22V — possible inverter issue
                 </p>
               </div>
 
               <div className="border-l-2 border-gray-500 pl-3">
-                <p className="text-gray-300 text-sm">
-                  Dust Accumulation
-                </p>
+                <p className="text-gray-300 text-sm">Dust Accumulation</p>
                 <p className="text-xs text-gray-400">
                   Output reduced by 32% — cleaning recommended
                 </p>
               </div>
-
             </div>
-
           </div>
 
-          {/* ai assistant */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-5 flex flex-col">
-
             <h3 className="text-sm text-white mb-4">
               ● AI Microgrid Assistant
             </h3>
 
             <div className="bg-black/40 border border-white/10 rounded-lg p-4 text-sm text-gray-300">
               Hello! I'm monitoring your solar microgrid in real time.
-              Ask about system performance, alerts, or maintenance predictions.
             </div>
 
             <div className="flex gap-2 mt-4">
-
               <input
                 placeholder="Ask about your microgrid..."
                 className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm"
@@ -343,13 +331,9 @@ export default function Dashboard() {
               <button className="bg-white text-black px-4 rounded-lg hover:scale-105 transition">
                 ➤
               </button>
-
             </div>
-
           </div>
-
         </div>
-
       </div>
     </div>
   );

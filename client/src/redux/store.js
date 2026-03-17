@@ -11,7 +11,7 @@ export default configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         // Ignore these action types
-        ignoredActions: ["socket/setSocket"],
+        ignoredActions: ["socket/setSocket", "socket.socket"],
         // Ignore these field paths in all actions
         ignoredActionPaths: ["payload"],
         // Ignore these paths in the state

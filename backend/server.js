@@ -43,6 +43,7 @@ app.get("/", (req, res) => {
 
 io.on("connection", (socket) => {
   console.log("a user connected");
+  console.log("rooms", socket.rooms);
 
   const userId = socket.handshake.auth.token;
   console.log("userId:", userId, "socketId:", socket.id);
@@ -53,7 +54,7 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(process.env.PORT, async () => {
+httpServer.listen(process.env.PORT, "0.0.0.0", async () => {
   await connectMongo();
   await connectRedis();
   console.log(
