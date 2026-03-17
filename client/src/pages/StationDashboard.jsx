@@ -10,33 +10,47 @@ const STATUS = {
     glow: "#22d97a",
     bg: "rgba(34,217,122,0.07)",
     border: "rgba(34,217,122,0.35)",
-    badge: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30",
     label: "Optimal",
     icon: "●",
-    cell: "from-emerald-400/20 to-emerald-900/30",
     cellLine: "rgba(34,217,122,0.25)",
   },
   warning: {
     glow: "#f5a623",
     bg: "rgba(245,166,35,0.07)",
     border: "rgba(245,166,35,0.35)",
-    badge: "bg-amber-500/20 text-amber-300 border border-amber-500/30",
     label: "Degraded",
     icon: "▲",
-    cell: "from-amber-400/20 to-amber-900/30",
     cellLine: "rgba(245,166,35,0.25)",
   },
   cleaning: {
     glow: "#f04b4b",
     bg: "rgba(240,75,75,0.07)",
     border: "rgba(240,75,75,0.35)",
-    badge: "bg-red-500/20 text-red-300 border border-red-500/30",
     label: "Dirty",
     icon: "◆",
-    cell: "from-red-400/20 to-red-900/30",
     cellLine: "rgba(240,75,75,0.2)",
   },
 };
+
+/* ─── HELPER: compute avg power + efficiency from history ────── */
+function avgFromHistory(history) {
+  if (!history || history.length === 0)
+    return { power: 0, efficiency: 0, irradiance: 0 };
+  const len = history.length;
+  const power = history.reduce((s, r) => s + Number(r.power || 0), 0) / len;
+  const efficiency =
+    history.reduce((s, r) => s + Number(r.efficiency || 0), 0) / len;
+  const irradiance =
+    history.reduce((s, r) => s + Number(r.irradiance || 0), 0) / len;
+  return { power, efficiency, irradiance };
+}
+
+function getStatus(efficiency, irradiance) {
+  const needsCleaning = efficiency < 0.6 && irradiance > 500;
+  if (needsCleaning) return "cleaning";
+  if (efficiency < 0.75) return "warning";
+  return "healthy";
+}
 
 /* ─── SOLAR CELL SVG ─────────────────────────────────────────── */
 function SolarCellGrid({ status }) {
@@ -69,7 +83,6 @@ function SolarCellGrid({ status }) {
         stroke={s.cellLine}
         strokeWidth="0.8"
       />
-      {/* horizontal dividers */}
       {[18, 35, 52].map((y) => (
         <line
           key={y}
@@ -81,7 +94,6 @@ function SolarCellGrid({ status }) {
           strokeWidth="0.6"
         />
       ))}
-      {/* vertical dividers */}
       {[20, 40, 60].map((x) => (
         <line
           key={x}
@@ -93,7 +105,6 @@ function SolarCellGrid({ status }) {
           strokeWidth="0.6"
         />
       ))}
-      {/* diagonal shine */}
       <line
         x1="1"
         y1="1"
@@ -112,7 +123,6 @@ function SolarCellGrid({ status }) {
         strokeWidth="0.4"
         strokeOpacity="0.10"
       />
-      {/* center glow */}
       <circle cx="40" cy="26" r="14" fill={s.glow} fillOpacity="0.06" />
     </svg>
   );
@@ -121,7 +131,7 @@ function SolarCellGrid({ status }) {
 /* ─── ARRAY CARD ─────────────────────────────────────────────── */
 function ArrayCard({ arr, onClick }) {
   const s = STATUS[arr.status];
-  const effPct = (arr.efficiency * 100).toFixed(0);
+  const effPct = (Number(arr.efficiency || 0) * 100).toFixed(0);
 
   return (
     <div
@@ -133,7 +143,7 @@ function ArrayCard({ arr, onClick }) {
         boxShadow: `0 0 18px ${s.glow}18, 0 2px 8px rgba(0,0,0,0.5)`,
       }}
     >
-      {/* glow pulse on hover */}
+      {/* hover glow */}
       <div
         className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl pointer-events-none"
         style={{ boxShadow: `inset 0 0 28px ${s.glow}22` }}
@@ -159,12 +169,32 @@ function ArrayCard({ arr, onClick }) {
           />
         </div>
 
-        {/* power */}
-        <div className="flex items-baseline gap-1">
-          <span className="text-lg font-black text-white leading-none">
-            {arr.power}
+        {/* power value + live/avg badge */}
+        <div className="flex items-baseline justify-between gap-1">
+          <div className="flex items-baseline gap-1">
+            <span className="text-lg font-black text-white leading-none">
+              {Number(arr.power || 0).toFixed(1)}
+            </span>
+            <span className="text-[10px] text-white/40 font-medium">W</span>
+          </div>
+          {/* badge: AVG on load, LIVE after socket */}
+          <span
+            style={{
+              fontSize: 8,
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              padding: "2px 6px",
+              borderRadius: 99,
+              background: arr.isLive ? `${s.glow}18` : "rgba(255,255,255,0.06)",
+              border: arr.isLive
+                ? `1px solid ${s.glow}40`
+                : "1px solid rgba(255,255,255,0.1)",
+              color: arr.isLive ? s.glow : "rgba(255,255,255,0.3)",
+            }}
+          >
+            {arr.isLive ? "● live" : "~ avg"}
           </span>
-          <span className="text-[10px] text-white/40 font-medium">W</span>
         </div>
 
         {/* efficiency bar */}
@@ -191,9 +221,22 @@ function ArrayCard({ arr, onClick }) {
 
         {/* status badge */}
         <div
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${s.badge}`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "2px 8px",
+            borderRadius: 99,
+            fontSize: 9,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            background: `${s.glow}18`,
+            border: `1px solid ${s.glow}35`,
+            color: s.glow,
+          }}
         >
-          <span style={{ color: s.glow }}>{s.icon}</span>
+          <span>{s.icon}</span>
           {s.label}
         </div>
       </div>
@@ -205,10 +248,10 @@ function ArrayCard({ arr, onClick }) {
 export default function SolarFieldView() {
   const navigate = useNavigate();
   const auth = useSelector((state) => state.auth);
-  let arrays = useSelector((state) => state.auth.array);
+  const arrays = useSelector((state) => state.auth.array);
   const socketSlice = useSelector((state) => state.socket);
+  const dispatch = useDispatch();
   const [loading, setLoading] = useState(true);
-  let dispatch = useDispatch();
 
   /* ── stats ── */
   const total = arrays.length;
@@ -217,6 +260,7 @@ export default function SolarFieldView() {
   const dirty = arrays.filter((a) => a.status === "cleaning").length;
   const totalPower = arrays.reduce((sum, a) => sum + Number(a.power || 0), 0);
 
+  /* ── ON LOAD: fetch devices + history → compute averages ─────── */
   useEffect(() => {
     const fetchDevices = async () => {
       try {
@@ -238,29 +282,39 @@ export default function SolarFieldView() {
                 { withCredentials: true },
               );
 
+              // history array from Redis cache
+              const history = metricRes?.data?.history || [];
               const latest = metricRes?.data?.device || {};
-              const efficiency = latest.efficiency || 0;
-              const irradiance = latest.irradiance || 0;
-              const needsCleaning = efficiency < 0.6 && irradiance > 500;
+
+              // ── use avg from history if available, else fall back to latest ──
+              const { power, efficiency, irradiance } =
+                history.length >= 2
+                  ? avgFromHistory(history)
+                  : {
+                      power: latest.power || 0,
+                      efficiency: latest.efficiency || 0,
+                      irradiance: latest.irradiance || 0,
+                    };
 
               return {
                 id: d?._id || i,
                 name: d?.name || `Array ${i + 1}`,
-                power: (latest.power || 0).toFixed(0),
-                efficiency,
-                status: needsCleaning
-                  ? "cleaning"
-                  : efficiency < 0.75
-                    ? "warning"
-                    : "healthy",
+                power: power,
+                efficiency: efficiency,
+                irradiance: irradiance,
+                status: getStatus(efficiency, irradiance),
+                isLive: false, // ← avg on load
+                historyLen: history.length,
               };
             } catch {
               return {
                 id: d?._id || i,
                 name: d?.name || `Array ${i + 1}`,
-                power: "0",
+                power: 0,
                 efficiency: 0,
+                irradiance: 0,
                 status: "warning",
+                isLive: false,
               };
             }
           }),
@@ -277,40 +331,38 @@ export default function SolarFieldView() {
     fetchDevices();
   }, [dispatch, auth?.user]);
 
+  /* ── SOCKET: switch to live values when data arrives ─────────── */
   useEffect(() => {
     if (!socketSlice.socket) return;
     const socket = socketSlice.socket;
 
     const handler = (data) => {
       const dataFromSocket = typeof data === "string" ? JSON.parse(data) : data;
-      let parsed = dataFromSocket.latest;
-      const deviceId = dataFromSocket.latest.deviceId;
+      const parsed = dataFromSocket.latest;
+      const deviceId = parsed?.deviceId;
       if (!deviceId) return;
 
-      const needsCleaning = parsed.efficiency < 0.6 && parsed.irradiance > 500;
-      let efficiency = parsed.efficiency || 0;
+      const efficiency = parsed.efficiency || 0;
+      const irradiance = parsed.irradiance || 0;
 
-      let socketData = {
+      const socketData = {
         id: deviceId,
-        name: `Array `,
+        power: parsed.power || 0,
+        efficiency: efficiency,
+        irradiance: irradiance,
         voltage: parsed.voltage || 0,
         current: parsed.current || 0,
-        power: (parsed.power || 0).toFixed(0),
-        status: needsCleaning
-          ? "cleaning"
-          : efficiency < 0.75
-            ? "warning"
-            : "healthy",
         expected_power: parsed.expected_power || 0,
-        efficiency: parsed.efficiency || 0,
         health_score: parsed.health_score || 0,
         temperature: parsed.temperature || 0,
-        irradiance: parsed.irradiance || 0,
         trust_score: parsed.trust_score || 0,
         battery: parsed.battery || 0,
         connectivity: parsed.connectivity || 0,
+        status: getStatus(efficiency, irradiance),
+        isLive: true, // ← mark as live
         deviceId,
       };
+
       dispatch(setArrayForPerticularData({ deviceId, socketData }));
     };
 
@@ -326,19 +378,18 @@ export default function SolarFieldView() {
         fontFamily: "'DM Mono', 'Fira Code', monospace",
       }}
     >
-      {/* ── background grid ── */}
+      {/* background grid */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           backgroundImage: `
             linear-gradient(rgba(34,217,122,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(34,217,122,0.03) 1px, transparent 1px)
-          `,
+            linear-gradient(90deg, rgba(34,217,122,0.03) 1px, transparent 1px)`,
           backgroundSize: "48px 48px",
         }}
       />
 
-      {/* ── ambient glow blobs ── */}
+      {/* ambient glow blobs */}
       <div
         className="absolute pointer-events-none"
         style={{
@@ -386,15 +437,45 @@ export default function SolarFieldView() {
           </p>
         </div>
 
-        {/* live indicator */}
-        <div className="flex items-center gap-2 mt-1">
-          <span
-            className="w-2 h-2 rounded-full animate-pulse"
-            style={{ background: "#22d97a", boxShadow: "0 0 8px #22d97a" }}
-          />
-          <span className="text-[10px] text-white/40 uppercase tracking-widest">
-            Live
-          </span>
+        {/* live indicator + legend */}
+        <div className="flex items-center gap-6 mt-1">
+          {/* mode legend */}
+          <div className="flex items-center gap-4 text-[9px] text-white/30 uppercase tracking-widest">
+            <span className="flex items-center gap-1.5">
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "#22d97a",
+                  display: "inline-block",
+                  boxShadow: "0 0 5px #22d97a",
+                }}
+              />
+              Live
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.25)",
+                  display: "inline-block",
+                }}
+              />
+              Avg (history)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className="w-2 h-2 rounded-full animate-pulse"
+              style={{ background: "#22d97a", boxShadow: "0 0 8px #22d97a" }}
+            />
+            <span className="text-[10px] text-white/40 uppercase tracking-widest">
+              Live
+            </span>
+          </div>
         </div>
       </div>
 
@@ -404,12 +485,25 @@ export default function SolarFieldView() {
           <Stat label="Total Arrays" value={total} color="#ffffff" />
           <Stat
             label="Total Power"
-            value={`${totalPower.toLocaleString()} W`}
+            value={`${totalPower.toFixed(1)} W`}
             color="#22d97a"
           />
           <Stat label="Optimal" value={healthy} color="#22d97a" />
           <Stat label="Degraded" value={warning} color="#f5a623" />
           <Stat label="Needs Cleaning" value={dirty} color="#f04b4b" />
+          {/* how many are live vs avg */}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 16 }}>
+            <Stat
+              label="Live feeds"
+              value={arrays.filter((a) => a.isLive).length}
+              color="#22d97a"
+            />
+            <Stat
+              label="Avg feeds"
+              value={arrays.filter((a) => !a.isLive).length}
+              color="rgba(255,255,255,0.3)"
+            />
+          </div>
         </div>
       )}
 
@@ -417,12 +511,12 @@ export default function SolarFieldView() {
       {loading && (
         <div className="relative z-20 flex flex-col items-center justify-center mt-32 gap-4">
           <div
-            className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin"
-            style={{ borderColor: "white", borderTopColor: "#22d97a" }}
+            className="w-10 h-10 rounded-full border-2 animate-spin"
+            style={{
+              borderColor: "rgba(255,255,255,0.1)",
+              borderTopColor: "#22d97a",
+            }}
           />
-          {/* <span className="text-white/30 text-xs tracking-widest uppercase">
-            Fetching arrays...
-          </span> */}
         </div>
       )}
 
