@@ -17,18 +17,20 @@ const stationSchema = new mongoose.Schema({
   },
   totalNumberOfArray: {
     type: Number,
-    required: true,
+    default: 0,
   },
   numberOfWorkingArray: {
     type: Number,
-    required: true,
+    default: 0,
   },
 
   numberOfDefectiveArray: {
     type: Number,
+    default: 0,
   },
   numberOfDustedArray: {
     type: Number,
+    default: 0,
   },
 });
 

@@ -17,6 +17,10 @@ const userSchema = new mongoose.Schema(
     avatar: {
       type: String,
     },
+    currentStation: {
+      type:String
+
+    },
   },
   { timestamps: true },
 );

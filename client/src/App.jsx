@@ -11,6 +11,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { setAuth, setUser } from "./redux/Slice/authSlice";
 import { io } from "socket.io-client";
 import { setSocket } from "./redux/Slice/socketSlice";
+import StationDashboard from "./pages/StationDashboard";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -80,7 +81,7 @@ const App = () => {
       <Routes>
         <Route index element={<Hero />} />
         <Route element={<MainLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<StationDashboard />} />
           <Route path="/devices" element={<DevicesPage />} />
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/logs" element={<LogsPage />} />
