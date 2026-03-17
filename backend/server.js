@@ -11,6 +11,8 @@ import metricRouter from "./routes/metric.routes.js";
 import { connectMongo } from "./config/mongodb.js";
 import { connectRedis } from "./config/redis.js";
 import authRouter from "./routes/auth.routes.js";
+import stationRouter from "./routes/station.routes.js";
+import deviceRouter from "./routes/device.routes.js";
 
 const app = express();
 
@@ -36,6 +38,8 @@ app.use(cookieParser());
 
 app.use("/api/metric", metricRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/station", stationRouter);
+app.use("/api/device", deviceRouter);
 
 app.get("/", (req, res) => {
   res.send("<h1>hello</h1>");

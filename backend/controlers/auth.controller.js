@@ -1,16 +1,14 @@
-
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import { client } from "../config/google.js";
 import User from "../models/user.model.js";
-
-
 
 const createToken = (user) => {
   const data = {
     _id: user._id,
     email: user.email,
     userName: user.userName,
+    currentStation: user.currentStation,
   };
   return jwt.sign(data, "secret", { expiresIn: "7d" });
 };

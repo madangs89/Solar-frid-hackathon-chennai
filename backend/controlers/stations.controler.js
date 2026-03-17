@@ -11,15 +11,17 @@ export const createStation = async (req, res) => {
       });
     }
 
-    const Station = await Station.create({
+    const newStation = await Station.create({
       name,
       location,
     });
     return res.status(201).json({
       message: "Station created successfully",
-      Station,
+      station: newStation,
     });
   } catch (error) {
+    console.log(error);
+    
     return res
       .status(500)
       .json({ message: "Error creating station", error, success: false });

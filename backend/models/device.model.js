@@ -1,44 +1,60 @@
 import mongoose from "mongoose";
-const DeviceSchema = new mongoose.Schema({
-  deviceId: {
-    type: Object.mongoose.Types.ObjectId,
-    required: true,
+const DeviceSchema = new mongoose.Schema(
+  {
+    deviceType: {
+      type: String,
+      required: true,
+    },
+
+    stationId: {
+      type: String,
+      required: true,
+      ref: "Station",
+    },
+
+    name: String,
+    location: {
+      lat: {
+        type: String,
+        required: true,
+      },
+      lng: {
+        type: String,
+        required: true,
+      },
+    },
+    capacity: Number,
+
+    installedAt: Date,
+
+    averagePowerOutput: {
+      type: Number,
+      default: 0,
+    },
+    averageEfficiency: {
+      type: Number,
+      default: 0,
+    }, // percentage
+
+    expectedPowerOutput: {
+      type: Number,
+      default: 0,
+    },
+
+    totalMetricCount: {
+      type: Number,
+      default: 0,
+    },
+    status: {
+      type: String,
+      enum: ["active", "offline", "maintenance"],
+      default: "active",
+    },
   },
-
-  deviceType: {
-    type: String,
-    required: true,
+  {
+    timestamps: true,
   },
-
-  stationId: {
-    type: Object.mongoose.Types.ObjectId,
-    required: true,
-    ref: "Station",
-  },
-
-  name: String,
-  location: String,
-  capacity: Number, // max watt output
-
-  installedAt: Date,
-
-  averagePowerOutput: Number,
-  averageEfficiency: Number, // percentage
-
-  expectedPowerOutput: Number,
-
-  totalMetricCount: Number,
-  status: {
-    type: String,
-    enum: ["active", "offline", "maintenance"],
-    default: "active",
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+);
 
 const Device = mongoose.model("Device", DeviceSchema);
 export default Device;
