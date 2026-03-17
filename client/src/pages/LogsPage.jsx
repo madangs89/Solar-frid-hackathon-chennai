@@ -16,347 +16,562 @@ function timeAgo(ts) {
 }
 
 function fmt(v, dec = 2) {
-  if (v == null || v === "" || isNaN(Number(v))) return "—";
-  return Number(v).toFixed(dec);
+  const n = Number(v);
+  if (v == null || isNaN(n)) return "—";
+  return n.toFixed(dec);
 }
 
 function healthColor(score) {
-  if (score >= 75) return "#22d97a";
-  if (score >= 50) return "#f5a623";
+  const n = Number(score);
+  if (n >= 75) return "#22d97a";
+  if (n >= 50) return "#f5a623";
   return "#f04b4b";
 }
 
 function effColor(eff) {
-  // eff is 0–1
-  if (eff >= 0.75) return "#22d97a";
-  if (eff >= 0.5) return "#f5a623";
+  const n = Number(eff); // 0–1
+  if (n >= 0.75) return "#22d97a";
+  if (n >= 0.5) return "#f5a623";
   return "#f04b4b";
 }
 
-/* ─── METRIC BAR (mini sparkline-style bar) ──────────────────── */
-function MiniBar({ value, max, color }) {
-  const pct = Math.min(100, Math.max(0, (value / max) * 100));
+function tempColor(t) {
+  const n = Number(t);
+  if (n > 70) return "#f04b4b";
+  if (n > 50) return "#f5a623";
+  return "#22d97a";
+}
+
+function trustColor(t) {
+  const n = Number(t);
+  if (n >= 0.75) return "#22d97a";
+  if (n >= 0.5) return "#f5a623";
+  return "#f04b4b";
+}
+
+/* ─── PROGRESS BAR ───────────────────────────────────────────── */
+function Bar({ value, max = 100, color }) {
+  const pct = Math.min(100, Math.max(0, (Number(value) / max) * 100));
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+    <div
+      style={{
+        width: "100%",
+        height: 4,
+        background: "rgba(255,255,255,0.07)",
+        borderRadius: 99,
+        overflow: "hidden",
+      }}
+    >
       <div
         style={{
-          width: 40,
-          height: 3,
-          background: "rgba(255,255,255,0.08)",
+          height: "100%",
+          width: `${pct}%`,
+          background: color,
           borderRadius: 99,
-          overflow: "hidden",
-          flexShrink: 0,
+          boxShadow: `0 0 6px ${color}66`,
+          transition: "width 0.6s ease",
         }}
-      >
-        <div
-          style={{
-            height: "100%",
-            width: `${pct}%`,
-            background: color,
-            borderRadius: 99,
-            boxShadow: `0 0 4px ${color}88`,
-          }}
-        />
-      </div>
-      <span
-        style={{
-          fontSize: 10,
-          fontWeight: 700,
-          color,
-          fontFamily: "'DM Mono','Fira Code',monospace",
-        }}
-      >
-        {fmt(value, 1)}
-      </span>
+      />
     </div>
   );
 }
 
-/* ─── LOG ROW ────────────────────────────────────────────────── */
-function LogRow({ log, isNew, idx }) {
+/* ─── METRIC CELL ────────────────────────────────────────────── */
+function MetricCell({ label, value, unit, color, bar, barMax }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span
+        style={{
+          fontSize: 9,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: "rgba(255,255,255,0.28)",
+          fontWeight: 600,
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontSize: 14,
+          fontWeight: 800,
+          color: color || "#fff",
+          fontFamily: "'DM Mono','Fira Code',monospace",
+          lineHeight: 1,
+        }}
+      >
+        {value}
+        {unit && (
+          <span
+            style={{
+              fontSize: 10,
+              color: "rgba(255,255,255,0.35)",
+              marginLeft: 3,
+              fontWeight: 400,
+            }}
+          >
+            {unit}
+          </span>
+        )}
+      </span>
+      {bar !== undefined && (
+        <Bar value={bar} max={barMax || 100} color={color || "#22d97a"} />
+      )}
+    </div>
+  );
+}
+
+/* ─── LOG CARD ───────────────────────────────────────────────── */
+function LogCard({ log, isNew, idx }) {
   const [visible, setVisible] = useState(false);
   const hScore = Number(log.health_score ?? 0);
   const eff = Number(log.efficiency ?? 0);
   const hc = healthColor(hScore);
   const ec = effColor(eff);
+  const tc = tempColor(log.temperature);
+  const trc = trustColor(log.trust_score);
   const devId = log.deviceId
-    ? String(log.deviceId).slice(-6).toUpperCase()
-    : "——";
+    ? String(log.deviceId).slice(-8).toUpperCase()
+    : "————————";
+  const power = Number(log.power ?? 0);
+  const expPow = Number(log.expected_power ?? 0);
+  const ratio = expPow > 0 ? Math.min(100, (power / expPow) * 100) : 0;
 
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), idx * 8);
+    const t = setTimeout(() => setVisible(true), Math.min(idx * 12, 300));
     return () => clearTimeout(t);
   }, [idx]);
 
   return (
     <div
-      className="log-row"
+      className="log-card"
       style={{
         display: "grid",
-        gridTemplateColumns:
-          "56px 70px 90px 90px 90px 90px 90px 90px 80px 70px",
+        gridTemplateColumns: "44px 120px 1fr 1fr 1fr 1fr 1fr 1fr 80px",
         alignItems: "center",
-        padding: "9px 0",
-        borderBottom: "1px solid rgba(255,255,255,0.035)",
+        gap: 0,
+        padding: "14px 0",
+        borderBottom: "1px solid rgba(255,255,255,0.04)",
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(4px)",
-        transition: "opacity 0.25s ease, transform 0.25s ease",
-        background: isNew ? "rgba(34,217,122,0.05)" : "transparent",
+        transform: visible ? "translateY(0)" : "translateY(6px)",
+        transition: "opacity 0.3s ease, transform 0.3s ease",
+        background: isNew ? "rgba(34,217,122,0.04)" : "transparent",
+        cursor: "default",
       }}
     >
-      {/* # index */}
+      {/* Index */}
       <div
         style={{
-          paddingLeft: 20,
-          fontSize: 9,
-          color: "rgba(255,255,255,0.18)",
-          fontFamily: "monospace",
+          paddingLeft: 24,
+          fontSize: 10,
+          fontWeight: 600,
+          color: "rgba(255,255,255,0.15)",
+          fontFamily: "'DM Mono',monospace",
         }}
       >
         {String(idx + 1).padStart(3, "0")}
       </div>
 
       {/* Device */}
-      <div
-        style={{
-          fontSize: 9,
-          fontWeight: 700,
-          letterSpacing: "0.08em",
-          color: "rgba(255,255,255,0.5)",
-          fontFamily: "'DM Mono',monospace",
-        }}
-      >
-        ···{devId}
-      </div>
-
-      {/* Power */}
-      <div>
+      <div style={{ paddingRight: 12 }}>
         <div
           style={{
             fontSize: 9,
-            color: "rgba(255,255,255,0.3)",
-            marginBottom: 2,
-            letterSpacing: "0.06em",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,0.28)",
+            marginBottom: 4,
           }}
         >
-          POWER
+          Device
         </div>
         <div
           style={{
             fontSize: 11,
             fontWeight: 700,
-            color: "#fff",
+            color: "rgba(255,255,255,0.7)",
+            fontFamily: "'DM Mono',monospace",
+            letterSpacing: "0.05em",
+            background: "rgba(255,255,255,0.04)",
+            padding: "3px 8px",
+            borderRadius: 6,
+            display: "inline-block",
+            border: "1px solid rgba(255,255,255,0.07)",
+          }}
+        >
+          ···{devId.slice(-6)}
+        </div>
+        <div
+          style={{
+            fontSize: 9,
+            color: "rgba(255,255,255,0.2)",
+            marginTop: 3,
             fontFamily: "monospace",
+          }}
+        >
+          {timeAgo(log.timestamp)}
+        </div>
+      </div>
+
+      {/* Power */}
+      <div style={{ paddingRight: 16 }}>
+        <div
+          style={{
+            fontSize: 9,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,0.28)",
+            marginBottom: 6,
+          }}
+        >
+          Power
+        </div>
+        <div
+          style={{
+            fontSize: 18,
+            fontWeight: 900,
+            color: "#fff",
+            fontFamily: "'DM Mono',monospace",
+            lineHeight: 1,
           }}
         >
           {fmt(log.power, 1)}
           <span
             style={{
-              fontSize: 9,
+              fontSize: 10,
               color: "rgba(255,255,255,0.35)",
-              marginLeft: 2,
+              marginLeft: 3,
             }}
           >
             W
           </span>
-          <span
-            style={{
-              fontSize: 9,
-              color: "rgba(255,255,255,0.25)",
-              marginLeft: 4,
-            }}
-          >
-            / {fmt(log.expected_power, 1)}W
-          </span>
+        </div>
+        <div
+          style={{
+            fontSize: 10,
+            color: "rgba(255,255,255,0.3)",
+            marginTop: 3,
+            fontFamily: "monospace",
+          }}
+        >
+          exp {fmt(log.expected_power, 1)} W
+        </div>
+        <div style={{ marginTop: 6 }}>
+          <Bar value={ratio} max={100} color="#22d97a" />
         </div>
       </div>
 
       {/* Voltage / Current */}
-      <div>
+      <div style={{ paddingRight: 16 }}>
         <div
           style={{
             fontSize: 9,
-            color: "rgba(255,255,255,0.3)",
-            marginBottom: 2,
-            letterSpacing: "0.06em",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,0.28)",
+            marginBottom: 6,
           }}
         >
-          V / A
+          Voltage / Current
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 2 }}>
+          <span
+            style={{
+              fontSize: 16,
+              fontWeight: 800,
+              color: "#e2b96f",
+              fontFamily: "'DM Mono',monospace",
+            }}
+          >
+            {fmt(log.voltage, 1)}
+          </span>
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>
+            V
+          </span>
         </div>
         <div
           style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: "#e2b96f",
-            fontFamily: "monospace",
+            display: "flex",
+            alignItems: "baseline",
+            gap: 2,
+            marginTop: 2,
           }}
         >
-          {fmt(log.voltage, 1)}
           <span
             style={{
-              fontSize: 9,
-              color: "rgba(255,255,255,0.3)",
-              margin: "0 3px",
+              fontSize: 14,
+              fontWeight: 700,
+              color: "#a8d4ff",
+              fontFamily: "'DM Mono',monospace",
             }}
           >
-            V
+            {fmt(log.current, 2)}
           </span>
-          <span style={{ color: "rgba(255,255,255,0.25)" }}>/</span>
-          <span style={{ marginLeft: 3 }}>{fmt(log.current, 2)}</span>
-          <span
-            style={{
-              fontSize: 9,
-              color: "rgba(255,255,255,0.3)",
-              marginLeft: 2,
-            }}
-          >
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>
             A
           </span>
         </div>
       </div>
 
       {/* Efficiency */}
-      <div>
+      <div style={{ paddingRight: 16 }}>
         <div
           style={{
             fontSize: 9,
-            color: "rgba(255,255,255,0.3)",
-            marginBottom: 3,
-            letterSpacing: "0.06em",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,0.28)",
+            marginBottom: 6,
           }}
         >
-          EFF
+          Efficiency
         </div>
-        <MiniBar value={eff * 100} max={100} color={ec} />
+        <div
+          style={{
+            fontSize: 18,
+            fontWeight: 900,
+            color: ec,
+            fontFamily: "'DM Mono',monospace",
+            lineHeight: 1,
+          }}
+        >
+          {fmt(eff * 100, 1)}
+          <span
+            style={{
+              fontSize: 10,
+              color: "rgba(255,255,255,0.35)",
+              marginLeft: 2,
+            }}
+          >
+            %
+          </span>
+        </div>
+        <div style={{ marginTop: 6 }}>
+          <Bar value={eff * 100} max={100} color={ec} />
+        </div>
       </div>
 
       {/* Health */}
-      <div>
+      <div style={{ paddingRight: 16 }}>
         <div
           style={{
             fontSize: 9,
-            color: "rgba(255,255,255,0.3)",
-            marginBottom: 3,
-            letterSpacing: "0.06em",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,0.28)",
+            marginBottom: 6,
           }}
         >
-          HEALTH
-        </div>
-        <MiniBar value={hScore} max={100} color={hc} />
-      </div>
-
-      {/* Temperature */}
-      <div>
-        <div
-          style={{
-            fontSize: 9,
-            color: "rgba(255,255,255,0.3)",
-            marginBottom: 2,
-            letterSpacing: "0.06em",
-          }}
-        >
-          TEMP
+          Health
         </div>
         <div
           style={{
-            fontSize: 11,
-            fontWeight: 700,
-            fontFamily: "monospace",
-            color:
-              Number(log.temperature) > 70
-                ? "#f04b4b"
-                : Number(log.temperature) > 50
-                  ? "#f5a623"
-                  : "#22d97a",
+            fontSize: 18,
+            fontWeight: 900,
+            color: hc,
+            fontFamily: "'DM Mono',monospace",
+            lineHeight: 1,
           }}
         >
-          {fmt(log.temperature, 1)}
+          {fmt(hScore, 1)}
           <span
             style={{
-              fontSize: 9,
-              color: "rgba(255,255,255,0.3)",
+              fontSize: 10,
+              color: "rgba(255,255,255,0.35)",
               marginLeft: 2,
             }}
           >
-            °C
+            %
           </span>
         </div>
-      </div>
-
-      {/* Irradiance */}
-      <div>
-        <div
-          style={{
-            fontSize: 9,
-            color: "rgba(255,255,255,0.3)",
-            marginBottom: 2,
-            letterSpacing: "0.06em",
-          }}
-        >
-          IRRAD
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: "#e2c96f",
-            fontFamily: "monospace",
-          }}
-        >
-          {fmt(log.irradiance, 0)}
-          <span
-            style={{
-              fontSize: 9,
-              color: "rgba(255,255,255,0.3)",
-              marginLeft: 2,
-            }}
-          >
-            W/m²
-          </span>
+        <div style={{ marginTop: 6 }}>
+          <Bar value={hScore} max={100} color={hc} />
         </div>
       </div>
 
-      {/* Trust */}
-      <div>
-        <div
-          style={{
-            fontSize: 9,
-            color: "rgba(255,255,255,0.3)",
-            marginBottom: 2,
-            letterSpacing: "0.06em",
-          }}
-        >
-          TRUST
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            fontFamily: "monospace",
-            color:
-              Number(log.trust_score) < 0.5
-                ? "#f04b4b"
-                : Number(log.trust_score) < 0.75
-                  ? "#f5a623"
-                  : "#22d97a",
-          }}
-        >
-          {fmt(log.trust_score, 2)}
+      {/* Temperature + Irradiance */}
+      <div style={{ paddingRight: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div>
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.28)",
+                marginBottom: 3,
+              }}
+            >
+              Temp
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 800,
+                color: tc,
+                fontFamily: "'DM Mono',monospace",
+              }}
+            >
+              {fmt(log.temperature, 1)}
+              <span
+                style={{
+                  fontSize: 10,
+                  color: "rgba(255,255,255,0.3)",
+                  marginLeft: 2,
+                }}
+              >
+                °C
+              </span>
+            </div>
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.28)",
+                marginBottom: 3,
+              }}
+            >
+              Irradiance
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 800,
+                color: "#e2c96f",
+                fontFamily: "'DM Mono',monospace",
+              }}
+            >
+              {fmt(log.irradiance, 0)}
+              <span
+                style={{
+                  fontSize: 9,
+                  color: "rgba(255,255,255,0.3)",
+                  marginLeft: 2,
+                }}
+              >
+                W/m²
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Time */}
+      {/* Trust + Battery */}
+      <div style={{ paddingRight: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div>
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.28)",
+                marginBottom: 3,
+              }}
+            >
+              Trust
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 800,
+                color: trc,
+                fontFamily: "'DM Mono',monospace",
+              }}
+            >
+              {fmt(log.trust_score, 2)}
+            </div>
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.28)",
+                marginBottom: 3,
+              }}
+            >
+              Battery
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 800,
+                color:
+                  Number(log.battery) < 20
+                    ? "#f04b4b"
+                    : Number(log.battery) < 50
+                      ? "#f5a623"
+                      : "#22d97a",
+                fontFamily: "'DM Mono',monospace",
+              }}
+            >
+              {fmt(log.battery, 0)}
+              <span
+                style={{
+                  fontSize: 9,
+                  color: "rgba(255,255,255,0.3)",
+                  marginLeft: 2,
+                }}
+              >
+                %
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Status pill */}
       <div
         style={{
-          paddingRight: 20,
-          fontSize: 9,
-          color: "rgba(255,255,255,0.22)",
-          letterSpacing: "0.04em",
-          textAlign: "right",
-          fontFamily: "monospace",
+          paddingRight: 24,
+          display: "flex",
+          justifyContent: "flex-end",
         }}
       >
-        {timeAgo(log.timestamp)}
+        {(() => {
+          const score = Number(log.health_score ?? 0);
+          const [label, color] =
+            score >= 75
+              ? ["Optimal", "#22d97a"]
+              : score >= 50
+                ? ["Degraded", "#f5a623"]
+                : ["Poor", "#f04b4b"];
+          return (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "4px 10px",
+                borderRadius: 99,
+                background: `${color}14`,
+                border: `1px solid ${color}30`,
+                fontSize: 9,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color,
+              }}
+            >
+              <span
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: "50%",
+                  background: color,
+                  display: "inline-block",
+                  boxShadow: `0 0 5px ${color}`,
+                }}
+              />
+              {label}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -365,20 +580,21 @@ function LogRow({ log, isNew, idx }) {
 /* ─── STAT CHIP ─────────────────────────────────────────────── */
 function Stat({ label, value, color, unit }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <span
         style={{
-          fontSize: 9,
+          fontSize: 10,
           textTransform: "uppercase",
-          letterSpacing: "0.12em",
+          letterSpacing: "0.1em",
           color: "rgba(255,255,255,0.3)",
+          fontWeight: 600,
         }}
       >
         {label}
       </span>
       <span
         style={{
-          fontSize: 18,
+          fontSize: 22,
           fontWeight: 900,
           lineHeight: 1,
           color: color || "#fff",
@@ -389,9 +605,9 @@ function Stat({ label, value, color, unit }) {
         {unit && (
           <span
             style={{
-              fontSize: 11,
-              color: "rgba(255,255,255,0.35)",
-              marginLeft: 2,
+              fontSize: 12,
+              color: "rgba(255,255,255,0.3)",
+              marginLeft: 3,
             }}
           >
             {unit}
@@ -402,7 +618,7 @@ function Stat({ label, value, color, unit }) {
   );
 }
 
-/* ─── MAIN COMPONENT ─────────────────────────────────────────── */
+/* ─── MAIN ───────────────────────────────────────────────────── */
 export default function LogsPage() {
   const socketSlice = useSelector((state) => state.socket);
   const socket = socketSlice?.socket;
@@ -418,7 +634,6 @@ export default function LogsPage() {
   const pausedRef = useRef(false);
   const listRef = useRef(null);
 
-  /* ── Fetch logs ── */
   const fetchLogs = useCallback(async () => {
     setSpinning(true);
     setError(null);
@@ -432,12 +647,10 @@ export default function LogsPage() {
           (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
         );
         setLogs(sorted);
-      } else {
-        throw new Error(data.message || "Failed");
-      }
+      } else throw new Error(data.message || "Failed");
     } catch (err) {
       setError(
-        err?.response?.data?.message || err.message || "Failed to fetch logs",
+        err?.response?.data?.message || err.message || "Failed to fetch",
       );
     } finally {
       setLoading(false);
@@ -449,27 +662,24 @@ export default function LogsPage() {
     fetchLogs();
   }, [fetchLogs]);
 
-  /* ── Socket: live metric updates ── */
   useEffect(() => {
     if (!socket) return;
     const handler = (data) => {
       if (pausedRef.current) return;
       const incoming = data?.latest;
       if (!incoming) return;
-
-      const withId = { ...incoming, _liveId: `${Date.now()}-${Math.random()}` };
-      setLogs((prev) => [withId, ...prev].slice(0, 500));
-      setNewIds((prev) => new Set([...prev, withId._liveId]));
+      const entry = { ...incoming, _liveId: `${Date.now()}-${Math.random()}` };
+      setLogs((prev) => [entry, ...prev].slice(0, 500));
+      setNewIds((prev) => new Set([...prev, entry._liveId]));
       setLiveCount((c) => c + 1);
       setTimeout(() => {
         setNewIds((prev) => {
           const n = new Set(prev);
-          n.delete(withId._liveId);
+          n.delete(entry._liveId);
           return n;
         });
       }, 4000);
-      if (listRef.current)
-        listRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      listRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     };
     socket.on("metric", handler);
     return () => socket.off("metric", handler);
@@ -479,7 +689,6 @@ export default function LogsPage() {
     pausedRef.current = paused;
   }, [paused]);
 
-  /* ── Derived stats ── */
   const avgPower = logs.length
     ? logs.reduce((s, l) => s + Number(l.power || 0), 0) / logs.length
     : 0;
@@ -489,8 +698,10 @@ export default function LogsPage() {
   const avgTemp = logs.length
     ? logs.reduce((s, l) => s + Number(l.temperature || 0), 0) / logs.length
     : 0;
+  const avgEff = logs.length
+    ? logs.reduce((s, l) => s + Number(l.efficiency || 0), 0) / logs.length
+    : 0;
 
-  /* ── Filter by device search ── */
   const filtered = search
     ? logs.filter(
         (l) =>
@@ -499,43 +710,31 @@ export default function LogsPage() {
       )
     : logs;
 
-  const COLS = [
-    "#",
-    "Device",
-    "Power / Expected",
-    "Voltage / Current",
-    "Efficiency",
-    "Health",
-    "Temperature",
-    "Irradiance",
-    "Trust",
-    "Time",
-  ];
-
   return (
     <>
       <style>{`
-        @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        @keyframes spin   { to { transform: rotate(360deg); } }
-        .log-row:hover    { background: rgba(255,255,255,0.025) !important; }
-        .pill-btn         { cursor:pointer; transition: all 0.15s; font-family:'DM Mono','Fira Code',monospace; border:none; }
-        .pill-btn:hover   { opacity:0.8; }
-        ::-webkit-scrollbar       { width:3px; height:3px; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+        @keyframes spin  { to { transform: rotate(360deg); } }
+        .log-card:hover  { background: rgba(255,255,255,0.02) !important; }
+        .pill-btn        { cursor:pointer; transition:all 0.15s; font-family:'DM Mono','Fira Code',monospace; border:none; }
+        .pill-btn:hover  { opacity:0.8; }
+        ::-webkit-scrollbar       { width:3px; }
         ::-webkit-scrollbar-track { background:transparent; }
-        ::-webkit-scrollbar-thumb { background:rgba(34,217,122,0.18); border-radius:2px; }
-        input::placeholder { color: rgba(255,255,255,0.2); }
+        ::-webkit-scrollbar-thumb { background:rgba(34,217,122,0.15); border-radius:2px; }
+        input { outline:none; }
+        input::placeholder { color:rgba(255,255,255,0.2); }
       `}</style>
 
       <div
         style={{
           minHeight: "100vh",
-          position: "relative",
           background: "#080c10",
-          fontFamily: "'DM Mono', 'Fira Code', monospace",
+          fontFamily: "'DM Mono','Fira Code',monospace",
+          position: "relative",
           overflow: "hidden",
         }}
       >
-        {/* Grid bg */}
+        {/* Grid background */}
         <div
           style={{
             position: "absolute",
@@ -548,27 +747,27 @@ export default function LogsPage() {
           }}
         />
 
-        {/* Glow blobs */}
+        {/* Ambient glows */}
         <div
           style={{
             position: "absolute",
-            top: -60,
-            left: "25%",
-            width: 500,
-            height: 200,
+            top: -80,
+            left: "20%",
+            width: 600,
+            height: 250,
             pointerEvents: "none",
             background:
-              "radial-gradient(ellipse, rgba(34,217,122,0.06) 0%, transparent 70%)",
-            filter: "blur(40px)",
+              "radial-gradient(ellipse, rgba(34,217,122,0.07) 0%, transparent 70%)",
+            filter: "blur(50px)",
           }}
         />
         <div
           style={{
             position: "absolute",
             bottom: 0,
-            right: "10%",
-            width: 350,
-            height: 250,
+            right: "5%",
+            width: 400,
+            height: 280,
             pointerEvents: "none",
             background:
               "radial-gradient(ellipse, rgba(245,166,35,0.04) 0%, transparent 70%)",
@@ -581,12 +780,12 @@ export default function LogsPage() {
           style={{
             position: "relative",
             zIndex: 20,
-            padding: "22px 28px",
+            padding: "28px 32px 20px",
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "space-between",
             flexWrap: "wrap",
-            gap: 14,
+            gap: 16,
             borderBottom: "1px solid rgba(255,255,255,0.05)",
           }}
         >
@@ -595,85 +794,82 @@ export default function LogsPage() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
-                marginBottom: 4,
+                gap: 14,
+                marginBottom: 6,
               }}
             >
               <div
                 style={{
-                  width: 3,
-                  height: 30,
+                  width: 4,
+                  height: 36,
                   borderRadius: 2,
                   background:
-                    "linear-gradient(180deg, #22d97a, rgba(34,217,122,0.15))",
+                    "linear-gradient(180deg,#22d97a,rgba(34,217,122,0.1))",
                 }}
               />
-              <h1
-                style={{
-                  fontSize: 20,
-                  fontWeight: 900,
-                  color: "#fff",
-                  margin: 0,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                Metric Logs
-              </h1>
+              <div>
+                <h1
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 900,
+                    color: "#fff",
+                    margin: 0,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  Metric Logs
+                </h1>
+                <p
+                  style={{
+                    fontSize: 10,
+                    color: "rgba(255,255,255,0.28)",
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    margin: "4px 0 0",
+                  }}
+                >
+                  Raw sensor readings — all devices
+                </p>
+              </div>
             </div>
-            <p
-              style={{
-                fontSize: 9,
-                color: "rgba(255,255,255,0.28)",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                margin: "0 0 0 15px",
-              }}
-            >
-              Raw sensor readings — all devices
-            </p>
           </div>
 
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
+              gap: 10,
               flexWrap: "wrap",
             }}
           >
-            {/* Search by device */}
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter by device ID..."
               style={{
                 fontFamily: "inherit",
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                padding: "5px 12px",
+                fontSize: 11,
+                padding: "8px 16px",
                 borderRadius: 99,
-                background: "rgba(255,255,255,0.04)",
+                background: "rgba(255,255,255,0.05)",
                 border: "1px solid rgba(255,255,255,0.1)",
-                color: "rgba(255,255,255,0.6)",
-                outline: "none",
-                width: 160,
+                color: "rgba(255,255,255,0.7)",
+                width: 200,
               }}
             />
 
-            {/* Live / Pause */}
             <button
               className="pill-btn"
               onClick={() => setPaused((p) => !p)}
               style={{
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: 700,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
-                padding: "5px 14px",
+                padding: "8px 18px",
                 borderRadius: 99,
                 background: paused
-                  ? "rgba(245,166,35,0.12)"
+                  ? "rgba(245,166,35,0.1)"
                   : "rgba(34,217,122,0.1)",
                 border: paused
                   ? "1px solid rgba(245,166,35,0.4)"
@@ -681,7 +877,7 @@ export default function LogsPage() {
                 color: paused ? "#f5a623" : "#22d97a",
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
+                gap: 7,
               }}
             >
               {paused ? (
@@ -690,11 +886,11 @@ export default function LogsPage() {
                 <>
                   <span
                     style={{
-                      width: 6,
-                      height: 6,
+                      width: 7,
+                      height: 7,
                       borderRadius: "50%",
                       background: "#22d97a",
-                      boxShadow: "0 0 6px #22d97a",
+                      boxShadow: "0 0 7px #22d97a",
                       animation: "pulse 1.5s infinite",
                       display: "inline-block",
                     }}
@@ -704,28 +900,27 @@ export default function LogsPage() {
               )}
             </button>
 
-            {/* Refresh */}
             <button
               className="pill-btn"
               onClick={fetchLogs}
               style={{
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: 700,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
-                padding: "5px 14px",
+                padding: "8px 18px",
                 borderRadius: 99,
                 background: "transparent",
                 border: "1px solid rgba(255,255,255,0.1)",
-                color: "rgba(255,255,255,0.4)",
+                color: "rgba(255,255,255,0.45)",
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
+                gap: 7,
               }}
             >
               <svg
-                width="10"
-                height="10"
+                width="12"
+                height="12"
                 viewBox="0 0 16 16"
                 fill="none"
                 stroke="currentColor"
@@ -746,16 +941,16 @@ export default function LogsPage() {
           </div>
         </div>
 
-        {/* ── STAT BAR ── */}
+        {/* ── STATS ── */}
         {!loading && (
           <div
             style={{
               position: "relative",
               zIndex: 20,
-              padding: "12px 28px",
+              padding: "18px 32px",
               display: "flex",
               flexWrap: "wrap",
-              gap: 24,
+              gap: 40,
               alignItems: "center",
               borderBottom: "1px solid rgba(255,255,255,0.05)",
             }}
@@ -774,57 +969,71 @@ export default function LogsPage() {
               unit="%"
             />
             <Stat
+              label="Avg Eff"
+              value={(avgEff * 100).toFixed(1)}
+              color={effColor(avgEff)}
+              unit="%"
+            />
+            <Stat
               label="Avg Temp"
               value={avgTemp.toFixed(1)}
               color="#e2b96f"
               unit="°C"
             />
-            {liveCount > 0 && (
-              <div
-                style={{
-                  marginLeft: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 7,
-                  padding: "4px 12px",
-                  borderRadius: 99,
-                  background: "rgba(34,217,122,0.07)",
-                  border: "1px solid rgba(34,217,122,0.2)",
-                }}
-              >
-                <span
-                  style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: "50%",
-                    background: "#22d97a",
-                    boxShadow: "0 0 5px #22d97a",
-                    display: "inline-block",
-                    animation: "pulse 1.5s infinite",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 9,
-                    color: "#22d97a",
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  +{liveCount} LIVE
-                </span>
-              </div>
-            )}
-            <span
+
+            <div
               style={{
-                fontSize: 9,
-                color: "rgba(255,255,255,0.18)",
-                letterSpacing: "0.06em",
-                marginLeft: liveCount > 0 ? 0 : "auto",
+                marginLeft: "auto",
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
               }}
             >
-              {filtered.length} entries
-            </span>
+              {liveCount > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                    padding: "5px 14px",
+                    borderRadius: 99,
+                    background: "rgba(34,217,122,0.07)",
+                    border: "1px solid rgba(34,217,122,0.2)",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#22d97a",
+                      boxShadow: "0 0 6px #22d97a",
+                      display: "inline-block",
+                      animation: "pulse 1.5s infinite",
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: "#22d97a",
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    +{liveCount} LIVE
+                  </span>
+                </div>
+              )}
+              <span
+                style={{
+                  fontSize: 10,
+                  color: "rgba(255,255,255,0.2)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {filtered.length} entries
+              </span>
+            </div>
           </div>
         )}
 
@@ -834,21 +1043,21 @@ export default function LogsPage() {
             style={{
               position: "relative",
               zIndex: 20,
-              margin: "14px 28px 0",
-              padding: "10px 16px",
-              borderRadius: 8,
+              margin: "16px 32px 0",
+              padding: "12px 18px",
+              borderRadius: 10,
               background: "rgba(240,75,75,0.08)",
               border: "1px solid rgba(240,75,75,0.3)",
               color: "#f04b4b",
-              fontSize: 11,
+              fontSize: 12,
               display: "flex",
               alignItems: "center",
-              gap: 8,
+              gap: 10,
             }}
           >
             <svg
-              width="13"
-              height="13"
+              width="14"
+              height="14"
               viewBox="0 0 16 16"
               fill="none"
               stroke="currentColor"
@@ -869,13 +1078,13 @@ export default function LogsPage() {
               zIndex: 20,
               display: "flex",
               justifyContent: "center",
-              marginTop: 100,
+              marginTop: 120,
             }}
           >
             <div
               style={{
-                width: 30,
-                height: 30,
+                width: 36,
+                height: 36,
                 borderRadius: "50%",
                 border: "2px solid rgba(34,217,122,0.15)",
                 borderTopColor: "#22d97a",
@@ -885,79 +1094,88 @@ export default function LogsPage() {
           </div>
         )}
 
-        {/* ── TABLE ── */}
+        {/* ── COLUMN HEADERS ── */}
         {!loading && (
-          <div style={{ position: "relative", zIndex: 20, overflowX: "auto" }}>
-            {/* Column headers */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "56px 70px 90px 90px 90px 90px 90px 90px 80px 70px",
-                padding: "7px 0",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
-                background: "rgba(255,255,255,0.01)",
-                minWidth: 820,
-              }}
-            >
-              {COLS.map((h, i) => (
-                <div
-                  key={h}
-                  style={{
-                    fontSize: 9,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.1em",
-                    color: "rgba(255,255,255,0.25)",
-                    paddingLeft: i === 0 ? 20 : 0,
-                    paddingRight: i === COLS.length - 1 ? 20 : 0,
-                    textAlign: i === COLS.length - 1 ? "right" : "left",
-                  }}
-                >
-                  {h}
-                </div>
-              ))}
-            </div>
-
-            {/* Rows */}
-            {filtered.length === 0 ? (
+          <div
+            style={{
+              position: "relative",
+              zIndex: 20,
+              display: "grid",
+              gridTemplateColumns: "44px 120px 1fr 1fr 1fr 1fr 1fr 1fr 80px",
+              padding: "10px 0",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              background: "rgba(255,255,255,0.015)",
+            }}
+          >
+            {[
+              "#",
+              "Device",
+              "Power",
+              "V / A",
+              "Efficiency",
+              "Health",
+              "Temp / Irrad",
+              "Trust / Batt",
+              "Status",
+            ].map((h, i) => (
               <div
+                key={h}
                 style={{
-                  textAlign: "center",
-                  padding: "80px 32px",
-                  color: "rgba(255,255,255,0.18)",
-                  fontSize: 12,
-                  letterSpacing: "0.1em",
+                  fontSize: 9,
+                  fontWeight: 700,
                   textTransform: "uppercase",
+                  letterSpacing: "0.12em",
+                  color: "rgba(255,255,255,0.22)",
+                  paddingLeft: i === 0 ? 24 : 0,
+                  paddingRight: i === 8 ? 24 : 0,
+                  textAlign: i === 8 ? "right" : "left",
                 }}
               >
-                No readings found
+                {h}
               </div>
-            ) : (
-              <div
-                ref={listRef}
-                style={{
-                  maxHeight: "calc(100vh - 280px)",
-                  overflowY: "auto",
-                  minWidth: 820,
-                }}
-              >
-                {filtered.map((log, i) => (
-                  <LogRow
-                    key={
-                      log._liveId ||
-                      log._id ||
-                      `${log.deviceId}-${log.timestamp}-${i}`
-                    }
-                    log={log}
-                    isNew={newIds.has(log._liveId)}
-                    idx={i}
-                  />
-                ))}
-              </div>
-            )}
+            ))}
           </div>
         )}
+
+        {/* ── ROWS ── */}
+        {!loading &&
+          (filtered.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "100px 32px",
+                color: "rgba(255,255,255,0.15)",
+                fontSize: 13,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              No readings found
+            </div>
+          ) : (
+            <div
+              ref={listRef}
+              style={{
+                position: "relative",
+                zIndex: 20,
+                maxHeight: "calc(100vh - 320px)",
+                overflowY: "auto",
+              }}
+            >
+              {filtered.map((log, i) => (
+                <LogCard
+                  key={
+                    log._liveId ||
+                    log._id ||
+                    `${log.deviceId}-${log.timestamp}-${i}`
+                  }
+                  log={log}
+                  isNew={newIds.has(log._liveId)}
+                  idx={i}
+                />
+              ))}
+            </div>
+          ))}
       </div>
     </>
   );

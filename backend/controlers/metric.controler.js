@@ -314,11 +314,11 @@ export const addMetric = async (req, res) => {
         connectivity,
       });
 
-      history = metric.slice(-30);
+      history = metric;
 
-      if (metric.length > 100) {
-        metric.shift();
-      }
+      // if (metric.length > 100) {
+      //   metric.shift();
+      // }
 
       await pubClient.set(
         `userId:${userId}:deviceId:${deviceId}`,
