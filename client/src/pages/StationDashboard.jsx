@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
-import { setArray } from "../redux/Slice/authSlice";
+import { setArray, setArrayForPerticularData } from "../redux/Slice/authSlice";
 
 /* 🎨 COLORS */
 const statusStyles = {
@@ -16,6 +16,8 @@ export default function SolarFieldView() {
   const auth = useSelector((state) => state.auth);
 
   let arrays = useSelector((state) => state.auth.array);
+  const socketSlice = useSelector((state) => state.socket);
+
   const [loading, setLoading] = useState(true);
   let dispatch = useDispatch();
 
@@ -27,29 +29,51 @@ export default function SolarFieldView() {
 
         const res = await axios.get(
           `${import.meta.env.VITE_BACKEND_URL}/api/device/all/${stationId}`,
+          { withCredentials: true },
         );
 
         const devices = res?.data?.devices || [];
 
-        /* 🔥 map devices → UI format */
-        const mapped = devices.map((d, i) => {
-          const efficiency = Math.random();
-          const irradiance = 400 + Math.random() * 600;
+        /* 🔥 IMPORTANT: fetch each device metric */
+        const mapped = await Promise.all(
+          devices.map(async (d, i) => {
+            try {
+              const metricRes = await axios.get(
+                `${import.meta.env.VITE_BACKEND_URL}/api/device/get/single/${d._id}`,
+                { withCredentials: true },
+              );
 
-          const needsCleaning = efficiency < 0.6 && irradiance > 500;
+              const latest = metricRes?.data?.device || {};
 
-          return {
-            id: d?._id || i,
-            name: d?.name || `Array ${i + 1}`,
-            power: (Math.random() * 300).toFixed(0),
-            efficiency,
-            status: needsCleaning
-              ? "cleaning"
-              : efficiency < 0.75
-                ? "warning"
-                : "healthy",
-          };
-        });
+              const efficiency = latest.efficiency || 0;
+              const irradiance = latest.irradiance || 0;
+
+              const needsCleaning = efficiency < 0.6 && irradiance > 500;
+
+              return {
+                id: d?._id || i,
+                name: d?.name || `Array ${i + 1}`,
+                power: (latest.power || 0).toFixed(0),
+                efficiency,
+                status: needsCleaning
+                  ? "cleaning"
+                  : efficiency < 0.75
+                    ? "warning"
+                    : "healthy",
+              };
+            } catch (err) {
+              /* fallback if Redis empty */
+              return {
+                id: d?._id || i,
+                name: d?.name || `Array ${i + 1}`,
+                power: "0",
+                efficiency: 0,
+                status: "warning",
+              };
+            }
+          }),
+        );
+
         dispatch(setArray(mapped));
       } catch (err) {
         console.error("Device fetch error:", err);
@@ -61,6 +85,53 @@ export default function SolarFieldView() {
     fetchDevices();
   }, [dispatch, auth?.user]);
 
+  useEffect(() => {
+    if (!socketSlice.socket) return;
+
+    const socket = socketSlice.socket;
+
+    const handler = (data) => {
+      const dataFromSocket = typeof data === "string" ? JSON.parse(data) : data;
+
+      let parsed = dataFromSocket.latest;
+
+      const deviceId = dataFromSocket.latest.deviceId;
+      console.log(parsed);
+
+      console.log(deviceId);
+
+      if (!deviceId) return;
+      const needsCleaning = parsed.efficiency < 0.6 && parsed.irradiance > 500;
+      let efficiency = parsed.efficiency || 0;
+
+      let socketData = {
+        voltage: parsed.voltage || 0,
+        current: parsed.current || 0,
+        power: parsed.power || 0,
+        status: needsCleaning
+          ? "cleaning"
+          : efficiency < 0.75
+            ? "warning"
+            : "healthy",
+        expected_power: parsed.expected_power || 0,
+        efficiency: parsed.efficiency || 0,
+        health_score: parsed.health_score || 0,
+        temperature: parsed.temperature || 0,
+        irradiance: parsed.irradiance || 0,
+        trust_score: parsed.trust_score || 0,
+        battery: parsed.battery || 0,
+        connectivity: parsed.connectivity || 0,
+        deviceId,
+      };
+      dispatch(setArrayForPerticularData({ deviceId, socketData }));
+    };
+
+    socket.on("metric", handler);
+
+    return () => {
+      socket.off("metric", handler);
+    };
+  }, [socketSlice.socket]);
   return (
     <div className="relative min-h-screen bg-black overflow-hidden font-['Manrope']">
       {/* 🔥 UPDATED BG (slightly cleaner) */}

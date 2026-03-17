@@ -21,7 +21,7 @@ export const addMetric = async (req, res) => {
 
     if (!deviceId || !userId) {
       return res.status(400).json({
-        message: "Missing required fields",
+        message: "Missing required fields" + JSON.stringify({ deviceId, userId }),
         success: false,
       });
     }

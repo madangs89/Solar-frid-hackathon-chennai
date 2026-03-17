@@ -21,11 +21,33 @@ export const authSlice = createSlice({
     setArray: (state, action) => {
       state.array = action.payload;
     },
+    setArrayForPerticularData: (state, action) => {
+      console.log("called");
+
+      const { deviceId, socketData } = action.payload;
+
+      console.log("Called for update");
+
+      state.array = state.array.map((item) => {
+        if (item.id == deviceId) {
+          return {
+            ...item,
+            ...socketData,
+          };
+        }
+        return item;
+      });
+    },
   },
 });
 
-export const { setAuth, setUser, setCurrentWorkingId, setArray } =
-  authSlice.actions;
+export const {
+  setAuth,
+  setUser,
+  setCurrentWorkingId,
+  setArray,
+  setArrayForPerticularData,
+} = authSlice.actions;
 
 const authReducer = authSlice.reducer;
 

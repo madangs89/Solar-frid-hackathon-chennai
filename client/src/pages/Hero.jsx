@@ -149,8 +149,9 @@ const Hero = () => {
             ref={heroRef}
             className="text-4xl md:text-6xl font-semibold text-white leading-tight"
           >
-            Real-Time AI Monitoring for Solar Microgrids
+            Real-Time AI Monitoring <br /> for Solar Microgrids
           </h1>
+
 
           <div
             onMouseEnter={() =>

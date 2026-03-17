@@ -99,6 +99,8 @@ export const getAllDevicesOnBasisOfStations = async (req, res) => {
   try {
     const { stationId } = req.params;
 
+    let userId = req?.user?._id;
+
     if (!stationId) {
       return res.status(400).json({
         message: "Station id is required",
@@ -106,7 +108,17 @@ export const getAllDevicesOnBasisOfStations = async (req, res) => {
       });
     }
 
+    // let result = [];
+
     const devices = await Device.find({ stationId });
+    // for (let device of devices) {
+    //   const key = `userId:${userId}:deviceId:${device._id}`;
+    //   const cached = await pubClient.get(key);
+    //   result.push({
+    //     ...device.toObject(),
+    //   });
+    // }
+
     return res.status(200).json({
       message: "Devices fetched successfully",
       success: true,
