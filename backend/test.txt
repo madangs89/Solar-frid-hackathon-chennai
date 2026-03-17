@@ -1,0 +1,37 @@
+🔴 ZERO OUTPUT during daylight
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 0, "current": 0, "temperature": 45, "irradiance": 800, "trust_score": 0.9, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+🟡 NEEDS CLEANING — low efficiency + high irradiance
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 3, "current": 1, "temperature": 50, "irradiance": 900, "trust_score": 0.9, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+🔴 CRITICAL OVERHEAT
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 5, "current": 2, "temperature": 88, "irradiance": 700, "trust_score": 0.9, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+🟡 OVERHEAT WARNING
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 5, "current": 2, "temperature": 73, "irradiance": 700, "trust_score": 0.9, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+🔴 SENSOR FAULT — critically low trust
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 5, "current": 2, "temperature": 45, "irradiance": 600, "trust_score": 0.2, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+🟡 SENSOR UNRELIABLE
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 5, "current": 2, "temperature": 45, "irradiance": 600, "trust_score": 0.4, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+🔴 UNDERVOLTAGE — open circuit
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 2, "current": 0, "temperature": 45, "irradiance": 700, "trust_score": 0.9, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+🟡 OUTPUT OVERVOLTAGE — exceeds 150% expected
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 18, "current": 5, "temperature": 45, "irradiance": 400, "trust_score": 0.9, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+🔴 PEAK UNDERPERFORM — high irradiance, terrible efficiency
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 2, "current": 1, "temperature": 55, "irradiance": 950, "trust_score": 0.9, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+
+🔴 IRRADIANCE SENSOR FAULT — power present but irradiance = 0
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 10, "current": 3, "temperature": 45, "irradiance": 0, "trust_score": 0.9, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+
+🔴 HEALTH CRITICAL — everything bad at once
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 1, "current": 0.5, "temperature": 86, "irradiance": 900, "trust_score": 0.15, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }
+
+❄️ FROST ALERT
+{ "node_id": "node_001", "site_id": "site_A1", "voltage": 5, "current": 2, "temperature": -3, "irradiance": 200, "trust_score": 0.9, "deviceId": "69b94a87882e9c39b9af16c2", "userId": "69b8435a1a4de1e3efaaaf55" }

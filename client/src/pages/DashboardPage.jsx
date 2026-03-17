@@ -400,6 +400,49 @@ export default function Dashboard() {
   });
   const [history, setHistory] = useState([]);
 
+  const [activeAlerts, setActiveAlerts] = useState([]);
+
+  const mapAlertToUI = (alert) => {
+    const severityMap = {
+      CRITICAL: "#ff4d4f",
+      WARN: "#faad14",
+      INFO: "rgba(255,255,255,0.25)",
+    };
+
+    const titleMap = {
+      ZERO_OUTPUT: "No Power Output",
+      LOW_PERFORMANCE: "Low Performance",
+      OUTPUT_OVERSHOOT: "Output Overshoot",
+      LOW_EFFICIENCY: "Low Efficiency",
+      CRITICAL_EFFICIENCY: "Critical Efficiency",
+      EFFICIENCY_DROP: "Efficiency Drop",
+      CRITICAL_OVERHEAT: "Critical Overheat",
+      OVERHEAT: "High Temperature",
+      THERMAL_SPIKE: "Thermal Spike",
+      UNDERVOLTAGE: "Undervoltage",
+      ZERO_CURRENT: "No Current",
+      SENSOR_FAILURE: "Sensor Failure",
+      SENSOR_WARNING: "Sensor Warning",
+      CONNECTIVITY_CRITICAL: "Connectivity Critical",
+      CONNECTIVITY_WEAK: "Weak Connectivity",
+      BATTERY_CRITICAL: "Battery Critical",
+      BATTERY_LOW: "Battery Low",
+      HEALTH_CRITICAL: "Critical Health",
+      HEALTH_POOR: "Poor Health",
+      HEALTH_DROP: "Health Drop",
+    };
+
+    return {
+      id: alert._id || alert.timestamp, // fallback for real-time alerts
+      title: titleMap[alert.type] || alert.type.replaceAll("_", " "),
+      body: alert.message,
+      level: alert.severity,
+      color: severityMap[alert.severity] || "#999",
+      value: alert.value,
+      timestamp: alert.timestamp,
+    };
+  };
+
   useEffect(() => {
     if (!socketSlice.socket) return;
     const socket = socketSlice.socket;
@@ -442,6 +485,40 @@ export default function Dashboard() {
       }
     })();
   }, [params.id]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_BACKEND_URL}/api/alerts/get-alerts/${params.id}`,
+          { withCredentials: true },
+        );
+        if (res.data.success) {
+          setActiveAlerts(res.data.alerts.map(mapAlertToUI));
+        }
+      } catch (e) {
+        console.log(e);
+      }
+    })();
+  }, [params.id]);
+
+  useEffect(() => {
+    if (!socketSlice.socket) return;
+    const socket = socketSlice.socket;
+    const handler = (data) => {
+      const d = typeof data === "string" ? JSON.parse(data) : data;
+      const parsed = d.alerts.map(mapAlertToUI);
+
+      setActiveAlerts((prev) => {
+        return [
+          ...parsed,
+          ...prev.filter((a) => !parsed.some((p) => p.id === a.id)),
+        ].slice(0, 10);
+      });
+    };
+    socket.on("alerts", handler);
+    return () => socket.off("alerts", handler);
+  }, [socketSlice.socket]);
 
   const effPct = Number(pct(metrics.efficiency));
 
@@ -774,59 +851,46 @@ export default function Dashboard() {
           >
             <h3 className="text-sm font-bold text-white mb-5">Smart Alerts</h3>
             <div className="space-y-4">
-              {[
-                {
-                  color: C.sun,
-                  title: "Efficiency Alert",
-                  body: "Panel efficiency dropped below 60%",
-                  level: "WARN",
-                },
-                {
-                  color: C.red,
-                  title: "Voltage Spike",
-                  body: "Voltage exceeded 22V — possible inverter issue",
-                  level: "CRITICAL",
-                },
-                {
-                  color: "rgba(255,255,255,0.25)",
-                  title: "Dust Accumulation",
-                  body: "Output reduced by 32% — cleaning recommended",
-                  level: "INFO",
-                },
-              ].map((a) => (
-                <div
-                  key={a.title}
-                  className="flex gap-3 p-3 rounded-xl"
-                  style={{
-                    background: `${a.color}08`,
-                    border: `1px solid ${a.color}20`,
-                  }}
-                >
+              {activeAlerts && activeAlerts.length > 0 ? (
+                activeAlerts.map((a) => (
                   <div
-                    className="w-1 self-stretch rounded-full flex-shrink-0"
-                    style={{ background: a.color }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span
-                        className="text-xs font-bold"
-                        style={{ color: a.color }}
-                      >
-                        {a.title}
-                      </span>
-                      <span
-                        className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest"
-                        style={{ background: `${a.color}18`, color: a.color }}
-                      >
-                        {a.level}
-                      </span>
+                    key={a.id}
+                    className="flex gap-3 p-3 rounded-xl"
+                    style={{
+                      background: `${a.color}08`,
+                      border: `1px solid ${a.color}20`,
+                    }}
+                  >
+                    <div
+                      className="w-1 self-stretch rounded-full flex-shrink-0"
+                      style={{ background: a.color }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className="text-xs font-bold"
+                          style={{ color: a.color }}
+                        >
+                          {a.title}
+                        </span>
+                        <span
+                          className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest"
+                          style={{ background: `${a.color}18`, color: a.color }}
+                        >
+                          {a.level}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-white/40 mt-0.5 leading-snug">
+                        {a.body}
+                      </p>
                     </div>
-                    <p className="text-[11px] text-white/40 mt-0.5 leading-snug">
-                      {a.body}
-                    </p>
                   </div>
+                ))
+              ) : (
+                <div className="text-center text-white/40 py-4">
+                  No active alerts.
                 </div>
-              ))}
+              )}
             </div>
           </div>
 

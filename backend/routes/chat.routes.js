@@ -2,6 +2,7 @@ import express from "express";
 import { authMiddelware } from "../middelware/authMiddelware.js";
 import { pubClient } from "../config/redis.js";
 import { ai } from "../config/google.js";
+import Alert from "../models/alert.model.js";
 
 const chatRouter = express.Router();
 
@@ -38,6 +39,10 @@ chatRouter.post("/chat", authMiddelware, async (req, res) => {
 
     let latest = parsed.metric[parsed.metric.length - 1];
 
+    let alerts = await Alert.find({ deviceId })
+      .sort({ createdAt: -1 })
+      .limit(10);
+
     const chat = ai.chats.create({
       model: "gemini-2.5-flash",
       history: history || [],
@@ -49,6 +54,7 @@ You are a solar microgrid diagnostic assistant with deep domain expertise.
 INPUT:
 - latest: most recent sensor reading
 - history: last N sensor readings
+- Warnings: warning from rule based engine for readings
 - question: user's question
 
 YOUR GOAL:
@@ -147,8 +153,13 @@ ${JSON.stringify(latest)}
 history:
 ${JSON.stringify(parsed ? parsed.metric.slice(-30) : [])}
 
+Warnings:
+${JSON.stringify(alerts)}
+
 QUESTION:
 ${message}
+
+
 
 REMEMBER:
 - Use only given data

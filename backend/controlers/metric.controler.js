@@ -1,5 +1,7 @@
 import { pubClient } from "../config/redis.js";
 import Alert from "../models/alert.model.js";
+import Device from "../models/device.model.js";
+import User from "../models/user.model.js";
 import { io } from "../server.js";
 
 function generateAlerts(current, history) {
@@ -378,6 +380,7 @@ export const addMetric = async (req, res) => {
     if (alerts.length > 0) {
       io.to(userId).emit("alerts", { deviceId, alerts });
       await Alert.insertMany(alerts);
+      console.log({ alerts });
     }
     return res.status(200).json({
       message: "Collected the data successfully",
@@ -388,6 +391,55 @@ export const addMetric = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       message: "Failed to collect the data",
+      success: false,
+    });
+  }
+};
+
+export const allLogs = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    if (!userId) {
+      return res.status(400).json({
+        message: "User ID is required",
+        success: false,
+      });
+    }
+
+    let logs = [];
+
+    const userDetails = await User.findById(userId).lean();
+    let stationId = userDetails.currentStation;
+
+    const allDeviceIds = await Device.find({ stationId }).select("_id").lean();
+
+    console.log({ allDeviceIds });
+
+    for (const device of allDeviceIds) {
+      const deviceId = device._id.toString();
+      const key = `userId:${userId}:deviceId:${deviceId}`;
+      const cachedValueFromRedis = await pubClient.get(key);
+
+      console.log(cachedValueFromRedis);
+
+      if (cachedValueFromRedis) {
+        const parsed = JSON.parse(cachedValueFromRedis);
+        logs.push(...parsed.metric);
+      }
+    }
+
+    logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    return res.status(200).json({
+      message: "Logs retrieved successfully",
+      success: true,
+      logs,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Failed to retrieve logs",
       success: false,
     });
   }
