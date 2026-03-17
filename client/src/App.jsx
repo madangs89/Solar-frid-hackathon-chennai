@@ -7,12 +7,16 @@ import LogsPage from "./pages/LogsPage";
 import Hero from "./pages/Hero";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { setAuth, setUser } from "./redux/Slice/authSlice";
+import { io } from "socket.io-client";
+import { setSocket } from "./redux/Slice/socketSlice";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
+
+  const authSlice = useSelector((state) => state.auth);
 
   const navigate = useNavigate();
 
@@ -32,7 +36,7 @@ const App = () => {
           console.log("calling setUser");
           data.isAuth = true;
           dispatch(setAuth(true));
-          dispatch(setUser(data));
+          dispatch(setUser(data.user));
           navigate("/dashboard");
         }
       } catch (error) {
@@ -48,6 +52,19 @@ const App = () => {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (authSlice.isAuth && authSlice.user._id) {
+      const socket = io(import.meta.env.VITE_BACKEND_URL, {
+        reconnectionDelayMax: 10000,
+        auth: {
+          token: authSlice.user._id,
+        },
+      });
+
+      dispatch(setSocket(socket));
+    }
+  }, [authSlice.isAuth, authSlice.user]);
 
   return (
     <div>
