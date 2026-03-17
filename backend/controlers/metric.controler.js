@@ -2,6 +2,8 @@ import { pubClient } from "../config/redis.js";
 import { io } from "../server.js";
 
 export const addMetric = async (req, res) => {
+  console.log("got request");
+
   try {
     const data = req.body;
 
@@ -13,8 +15,6 @@ export const addMetric = async (req, res) => {
       temperature = 0,
       irradiance = 0,
       trust_score = 0,
-      battery = 70, // default
-      connectivity = 90,
       deviceId,
       userId,
     } = data;
@@ -26,27 +26,34 @@ export const addMetric = async (req, res) => {
       });
     }
 
+    let battery = 70; // default
+    let connectivity = 90;
     let panelCapacity = 20;
 
     let power = voltage * current;
     let expectedPower = panelCapacity * (irradiance / 1000);
     let timestamp = new Date();
-    let efficiency = expectedPower > 0 ? power / expectedPower : 0;
+    let rawEfficiency = 0;
+
+    if (expectedPower > 10) {
+      rawEfficiency = power / expectedPower;
+    }
+
+    // clamp between 0–1
+    let efficiency = Math.min(Math.max(rawEfficiency, 0), 1);
     let healthScore =
-      0.4 * efficiency +
-      0.3 * (trust_score * 100) +
-      0.2 * battery +
-      0.1 * connectivity;
+      0.4 * efficiency + 0.3 * trust_score + 0.2 * battery + 0.1 * connectivity;
 
     let key = `userId:${userId}:deviceId:${deviceId}`;
     const cachedValueFromRedis = await pubClient.get(key);
 
     let parsed;
-
+    let history = [];
     if (cachedValueFromRedis) {
       parsed = JSON.parse(cachedValueFromRedis);
 
       const { deviceId, userId, metric } = parsed;
+
       metric.push({
         voltage,
         current,
@@ -63,6 +70,12 @@ export const addMetric = async (req, res) => {
         connectivity,
       });
 
+      history = metric.slice(-30);
+
+      if (metric.length > 30) {
+        metric.shift();
+      }
+
       await pubClient.set(
         `userId:${userId}:deviceId:${deviceId}`,
         JSON.stringify(parsed),
@@ -73,6 +86,8 @@ export const addMetric = async (req, res) => {
         userId,
         metric: [],
       };
+
+      // here need to get from db for history
 
       payload.metric.push({
         voltage,
@@ -90,6 +105,7 @@ export const addMetric = async (req, res) => {
         connectivity,
       });
 
+      history = payload.metric;
       await pubClient.set(key, JSON.stringify(payload));
     }
 
@@ -110,12 +126,12 @@ export const addMetric = async (req, res) => {
       battery,
       connectivity,
     };
-    io.to(userId).emit("metric", currentMetricPayload);
+    io.to(userId).emit("metric", { latest: currentMetricPayload, history });
 
     return res.status(200).json({
       message: "Collected the data successfully",
       success: true,
-      data: data,
+      data: currentMetricPayload,
     });
   } catch (error) {
     console.error(error);

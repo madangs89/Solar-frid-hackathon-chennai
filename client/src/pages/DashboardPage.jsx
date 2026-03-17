@@ -26,7 +26,29 @@ const powerChartData = [
   { actual: 67, expected: 91 },
 ];
 
-function StatCard({ icon: Icon, title, value, unit, change, color }) {
+const getChange = (key, history) => {
+  if (history == undefined) return 0;
+  if (history && history.length < 2) return 0;
+
+  const prev = history[history.length - 2][key];
+  const curr = history[history.length - 1][key];
+  console.log(key, history);
+
+  if (prev === 0) return 0;
+
+  return (((curr - prev) / prev) * 100).toFixed(3);
+};
+
+function StatCard({
+  icon: Icon,
+  title,
+  value,
+  unit,
+  change,
+  color,
+  actual_key,
+  history,
+}) {
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-4 md:p-5 hover:bg-white/10 transition flex flex-col justify-between">
       <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -50,8 +72,13 @@ function StatCard({ icon: Icon, title, value, unit, change, color }) {
 
         <div className="w-16 h-8">
           <ResponsiveContainer>
-            <LineChart data={spark}>
-              <Line dataKey="v" stroke={color} strokeWidth={2} dot={false} />
+            <LineChart data={history}>
+              <Line
+                dataKey={actual_key}
+                stroke={color}
+                strokeWidth={2}
+                dot={false}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -78,14 +105,17 @@ export default function Dashboard() {
     connectivity: 0,
   });
 
+  const [history, setHistory] = useState([]);
+
   useEffect(() => {
     if (!socketSlice.socket) return;
 
     const socket = socketSlice.socket;
 
     const handler = (data) => {
-      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+      const dataFromSocket = typeof data === "string" ? JSON.parse(data) : data;
 
+      let parsed = dataFromSocket.latest;
       setMetrics({
         voltage: parsed.voltage || 0,
         current: parsed.current || 0,
@@ -99,6 +129,7 @@ export default function Dashboard() {
         battery: parsed.battery || 0,
         connectivity: parsed.connectivity || 0,
       });
+      setHistory(dataFromSocket.history);
     };
 
     socket.on("metric", handler);
@@ -146,46 +177,56 @@ export default function Dashboard() {
           <StatCard
             icon={Zap}
             title="Voltage"
+            history={history}
             value={metrics.voltage.toFixed(2)}
             unit="V"
-            change={1.2}
+            change={getChange("voltage", history)}
             color="#22c55e"
+            actual_key={"voltage"}
           />
 
           <StatCard
             icon={Activity}
+            history={history}
             title="Current"
             value={metrics.current.toFixed(2)}
             unit="A"
-            change={-0.8}
+            change={getChange("current", history)}
             color="#9ca3af"
+            actual_key={"current"}
           />
 
           <StatCard
             icon={Zap}
+            history={history}
             title="Power Output"
             value={metrics.power.toFixed(2)}
             unit="W"
-            change={-2.1}
+            change={getChange("power")}
             color="#ef4444"
+            actual_key={"power"}
           />
 
           <StatCard
             icon={Battery}
+            history={history}
             title="Expected Power"
             value={metrics.expected_power.toFixed(2)}
             unit="W"
-            change={0.3}
+            change={getChange("expected_power", history)}
             color="#22c55e"
+            actual_key={"expected_power"}
           />
 
           <StatCard
             icon={Heart}
+            history={history}
             title="Health Score"
             value={metrics.health_score.toFixed(2)}
             unit=""
-            change={-1.3}
+            change={getChange("health_score", history)}
             color="#9ca3af"
+            actual_key={"health_score"}
           />
         </div>
 
@@ -207,19 +248,19 @@ export default function Dashboard() {
 
             <div className="h-56">
               <ResponsiveContainer>
-                <LineChart data={powerChartData}>
+                <LineChart data={history}>
                   <CartesianGrid stroke="#2a2a2a" strokeDasharray="3 3" />
 
                   <Line
-                    dataKey="actual"
+                    dataKey="power"
                     stroke="#22c55e"
                     strokeWidth={3}
                     dot={false}
                   />
 
                   <Line
-                    dataKey="expected"
-                    stroke="#6b7280"
+                    dataKey="expected_power"
+                    stroke="blue"
                     strokeWidth={2}
                     strokeDasharray="5 5"
                     dot={false}
