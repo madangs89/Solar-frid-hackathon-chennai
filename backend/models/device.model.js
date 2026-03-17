@@ -10,16 +10,14 @@ const DeviceSchema = new mongoose.Schema({
     required: true,
   },
 
-  //   need to make user schema and then connect to device schema
-  //   connectedUserId: {
-  //     type: Object.mongoose.Types.ObjectId,
-  //     required: true,
-  //   },
+  stationId: {
+    type: Object.mongoose.Types.ObjectId,
+    required: true,
+    ref: "Station",
+  },
 
   name: String,
-
   location: String,
-
   capacity: Number, // max watt output
 
   installedAt: Date,

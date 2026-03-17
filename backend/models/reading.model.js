@@ -6,11 +6,19 @@ const ReadingSchema = new mongoose.Schema({
     required: true,
   },
 
+  stationId: {
+    type: Object.mongoose.Types.ObjectId,
+    required: true,
+    ref: "Station",
+  },
+
   voltage: Number,
 
   current: Number,
 
   power: Number,
+
+  dustScore: Number,
 
   expectedPower: Number,
 
