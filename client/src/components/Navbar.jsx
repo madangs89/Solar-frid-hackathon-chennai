@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 const NAV_LINKS = [
   { label: "Dashboard", path: "/dashboard", icon: "◈" },
-  { label: "Alerts", path: "/alerts", icon: "◬" },
+  // { label: "Alerts", path: "/alerts", icon: "◬" },
   { label: "Logs", path: "/logs", icon: "≡" },
 ];
 

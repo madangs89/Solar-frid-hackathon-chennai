@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -25,6 +25,257 @@ const getChange = (key, history) => {
 
 const pct = (v) => Number((v || 0) * 100).toFixed(0);
 
+/* ─── NEW: compute averages from history array ─────────────── */
+function computeAvgs(history) {
+  if (!history || history.length === 0) return null;
+  const keys = [
+    "voltage",
+    "current",
+    "power",
+    "expected_power",
+    "efficiency",
+    "health_score",
+    "temperature",
+    "irradiance",
+    "trust_score",
+    "battery",
+    "connectivity",
+  ];
+  const sums = {};
+  keys.forEach((k) => (sums[k] = 0));
+  history.forEach((r) => {
+    keys.forEach((k) => (sums[k] += Number(r[k] || 0)));
+  });
+  const avgs = {};
+  keys.forEach((k) => (avgs[k] = sums[k] / history.length));
+  return avgs;
+}
+
+/* ─── TREND ANALYSIS ───────────────────────────────────────── */
+// Linear regression slope — positive = rising, negative = falling
+function calcSlope(history, key) {
+  const n = history.length;
+  if (n < 3) return 0;
+  const vals = history.map((r, i) => ({ x: i, y: Number(r[key] || 0) }));
+  const sumX = vals.reduce((s, v) => s + v.x, 0);
+  const sumY = vals.reduce((s, v) => s + v.y, 0);
+  const sumXY = vals.reduce((s, v) => s + v.x * v.y, 0);
+  const sumX2 = vals.reduce((s, v) => s + v.x * v.x, 0);
+  return (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+}
+
+// Volatility — std deviation as % of mean
+function calcVolatility(history, key) {
+  const n = history.length;
+  if (n < 3) return 0;
+  const vals = history.map((r) => Number(r[key] || 0));
+  const mean = vals.reduce((s, v) => s + v, 0) / n;
+  if (mean === 0) return 0;
+  const variance = vals.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
+  return (Math.sqrt(variance) / mean) * 100;
+}
+
+// Overall trend label from slope + volatility
+function trendLabel(slope, volatility, scale = 1) {
+  const norm = slope / scale; // normalise to [-1, 1] roughly
+  if (volatility > 25)
+    return { label: "Volatile", color: "#f5a623", icon: "⚡" };
+  if (norm > 0.05) return { label: "Rising", color: "#22d97a", icon: "↗" };
+  if (norm < -0.05) return { label: "Falling", color: "#f04b4b", icon: "↘" };
+  return { label: "Stable", color: "#38bdf8", icon: "→" };
+}
+
+function computeTrends(history) {
+  if (!history || history.length < 3) return null;
+  const metrics = [
+    "power",
+    "efficiency",
+    "health_score",
+    "temperature",
+    "irradiance",
+    "trust_score",
+  ];
+  const scales = {
+    power: 5,
+    efficiency: 0.02,
+    health_score: 2,
+    temperature: 1,
+    irradiance: 20,
+    trust_score: 0.02,
+  };
+  const result = {};
+  metrics.forEach((key) => {
+    const slope = calcSlope(history, key);
+    const vol = calcVolatility(history, key);
+    const trend = trendLabel(slope, vol, scales[key] || 1);
+    const first = Number(history[0][key] || 0);
+    const last = Number(history[history.length - 1][key] || 0);
+    const changePct =
+      first !== 0 ? ((last - first) / Math.abs(first)) * 100 : 0;
+    result[key] = { slope, volatility: vol, trend, changePct, first, last };
+  });
+  return result;
+}
+
+/* ─── TREND CARD ─────────────────────────────────────────────── */
+function TrendCard({ label, unit, metricKey, trendData, history, color }) {
+  if (!trendData) return null;
+  const { trend, changePct, volatility, first, last } = trendData;
+  const absChange = Math.abs(changePct);
+
+  return (
+    <div
+      className="rounded-2xl p-4 flex flex-col gap-3"
+      style={{
+        background:
+          "linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))",
+        border: `1px solid rgba(255,255,255,0.07)`,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* top accent */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 2,
+          background: `linear-gradient(90deg, transparent, ${trend.color}, transparent)`,
+        }}
+      />
+
+      {/* header */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-widest text-white/40">
+          {label}
+        </span>
+        <span className="text-sm font-black" style={{ color: trend.color }}>
+          {trend.icon} {trend.label}
+        </span>
+      </div>
+
+      {/* first → last */}
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] text-white/30 font-mono">
+          {Number(first).toFixed(2)}
+        </span>
+        <div
+          style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }}
+        />
+        <span className="text-[11px] font-black" style={{ color: trend.color }}>
+          {Number(last).toFixed(2)}
+          <span className="text-[9px] text-white/30 ml-1">{unit}</span>
+        </span>
+      </div>
+
+      {/* sparkline */}
+      <div style={{ height: 44, margin: "0 -4px" }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={history}>
+            <Line
+              dataKey={metricKey}
+              stroke={color}
+              strokeWidth={2}
+              dot={false}
+              style={{ filter: `drop-shadow(0 0 3px ${color}66)` }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* footer stats */}
+      <div
+        className="flex justify-between text-[9px] pt-1 border-t"
+        style={{ borderColor: "rgba(255,255,255,0.06)" }}
+      >
+        <span className="text-white/30">
+          Change{" "}
+          <span
+            className="font-bold"
+            style={{ color: changePct >= 0 ? C.green : C.red }}
+          >
+            {changePct >= 0 ? "+" : ""}
+            {changePct.toFixed(1)}%
+          </span>
+        </span>
+        <span className="text-white/30">
+          Volatility{" "}
+          <span
+            className="font-bold"
+            style={{
+              color:
+                volatility > 25
+                  ? "#f5a623"
+                  : volatility > 10
+                    ? "#38bdf8"
+                    : "rgba(255,255,255,0.5)",
+            }}
+          >
+            {volatility.toFixed(1)}%
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── TREND SUMMARY BAR ──────────────────────────────────────── */
+function TrendSummaryRow({ label, trendData, color }) {
+  if (!trendData) return null;
+  const { trend, changePct, volatility } = trendData;
+  return (
+    <div
+      className="flex items-center gap-3 py-2 border-b"
+      style={{ borderColor: "rgba(255,255,255,0.05)" }}
+    >
+      <span className="text-[10px] text-white/40 w-28 uppercase tracking-wider flex-shrink-0">
+        {label}
+      </span>
+      <span
+        className="text-sm font-black w-6 text-center"
+        style={{ color: trend.color }}
+      >
+        {trend.icon}
+      </span>
+      <span
+        className="text-[10px] font-bold w-16"
+        style={{ color: trend.color }}
+      >
+        {trend.label}
+      </span>
+      <div
+        className="flex-1 h-1.5 rounded-full overflow-hidden"
+        style={{ background: "rgba(255,255,255,0.06)" }}
+      >
+        <div
+          style={{
+            height: "100%",
+            borderRadius: 99,
+            width: `${Math.min(Math.abs(changePct), 100)}%`,
+            background:
+              changePct >= 0
+                ? `linear-gradient(90deg, ${color}66, ${color})`
+                : `linear-gradient(90deg, ${C.red}66, ${C.red})`,
+            transition: "width 0.8s ease",
+          }}
+        />
+      </div>
+      <span
+        className="text-[10px] font-bold w-14 text-right"
+        style={{ color: changePct >= 0 ? C.green : C.red }}
+      >
+        {changePct >= 0 ? "+" : ""}
+        {changePct.toFixed(1)}%
+      </span>
+      <span className="text-[9px] text-white/25 w-20 text-right">
+        vol {volatility.toFixed(1)}%
+      </span>
+    </div>
+  );
+}
+
 /* ─── theme ─────────────────────────────────────────────────── */
 const C = {
   sun: "#FFB830",
@@ -35,7 +286,6 @@ const C = {
   border: "rgba(255,255,255,0.08)",
 };
 
-/* ─── tiny sparkline tooltip (suppressed) ───────────────────── */
 const NoTooltip = () => null;
 
 /* ─── STAT CARD ─────────────────────────────────────────────── */
@@ -43,6 +293,7 @@ function StatCard({
   icon: Icon,
   title,
   value,
+  avgValue,
   unit,
   change,
   color,
@@ -93,7 +344,7 @@ function StatCard({
         </span>
       </div>
 
-      {/* value */}
+      {/* LIVE value */}
       <div className="flex items-baseline gap-1">
         <span
           className="text-3xl font-black text-white"
@@ -103,6 +354,22 @@ function StatCard({
         </span>
         <span className="text-xs text-white/30 font-medium">{unit}</span>
       </div>
+
+      {/* ── NEW: avg row ── */}
+      {avgValue != null && (
+        <div className="flex items-center gap-2 -mt-1">
+          <span className="text-[9px] uppercase tracking-widest text-white/25">
+            Avg
+          </span>
+          <span
+            className="text-[11px] font-bold"
+            style={{ color: `${color}bb` }}
+          >
+            {avgValue}
+          </span>
+          <span className="text-[9px] text-white/25">{unit}</span>
+        </div>
+      )}
 
       {/* sparkline */}
       <div className="h-10 -mx-1">
@@ -122,7 +389,7 @@ function StatCard({
 }
 
 /* ─── RING GAUGE ─────────────────────────────────────────────── */
-function RingGauge({ value, color, label, size = 96 }) {
+function RingGauge({ value, avgValue, color, label, size = 96 }) {
   const r = 36;
   const circ = 2 * Math.PI * r;
   const fill = circ * (Math.min(Math.max(value, 0), 100) / 100);
@@ -151,15 +418,29 @@ function RingGauge({ value, color, label, size = 96 }) {
         />
         <text
           x="48"
-          y="52"
+          y="48"
           textAnchor="middle"
           fill="white"
           fontSize="14"
           fontWeight="900"
           fontFamily="'DM Mono', monospace"
+          dominantBaseline="middle"
         >
           {Number(value).toFixed(0)}%
         </text>
+        {/* ── NEW: avg value below center ── */}
+        {avgValue != null && (
+          <text
+            x="48"
+            y="64"
+            textAnchor="middle"
+            fill={`${color}99`}
+            fontSize="8"
+            fontFamily="'DM Mono', monospace"
+          >
+            avg {Number(avgValue).toFixed(0)}%
+          </text>
+        )}
       </svg>
       <span className="text-[10px] text-white/40 uppercase tracking-widest">
         {label}
@@ -169,27 +450,70 @@ function RingGauge({ value, color, label, size = 96 }) {
 }
 
 /* ─── BAR ROW ────────────────────────────────────────────────── */
-function BarRow({ label, value, color }) {
+function BarRow({ label, value, avgValue, color }) {
   return (
     <div>
       <div className="flex justify-between text-[11px] mb-1.5">
         <span className="text-white/50">{label}</span>
-        <span className="font-bold" style={{ color }}>
-          {Number(value).toFixed(0)}%
-        </span>
+        <div className="flex items-center gap-3">
+          {/* ── NEW: avg chip ── */}
+          {avgValue != null && (
+            <span className="text-[9px] text-white/30">
+              avg{" "}
+              <span style={{ color: `${color}aa` }}>
+                {Number(avgValue).toFixed(0)}%
+              </span>
+            </span>
+          )}
+          <span className="font-bold" style={{ color }}>
+            {Number(value).toFixed(0)}%
+          </span>
+        </div>
       </div>
       <div
         className="h-1.5 rounded-full overflow-hidden"
         style={{ background: "rgba(255,255,255,0.06)" }}
       >
-        <div
-          className="h-full rounded-full transition-all duration-700"
-          style={{
-            width: `${Math.min(value, 100)}%`,
-            background: `linear-gradient(90deg, ${color}88, ${color})`,
-            boxShadow: `0 0 8px ${color}66`,
-          }}
-        />
+        {/* avg marker */}
+        {avgValue != null && (
+          <div
+            style={{
+              position: "relative",
+              height: "100%",
+            }}
+          >
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${Math.min(value, 100)}%`,
+                background: `linear-gradient(90deg, ${color}88, ${color})`,
+                boxShadow: `0 0 8px ${color}66`,
+              }}
+            />
+            {/* avg tick */}
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: `${Math.min(avgValue, 100)}%`,
+                width: 1,
+                height: "100%",
+                background: `${color}66`,
+                transform: "translateX(-50%)",
+              }}
+            />
+          </div>
+        )}
+        {avgValue == null && (
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${Math.min(value, 100)}%`,
+              background: `linear-gradient(90deg, ${color}88, ${color})`,
+              boxShadow: `0 0 8px ${color}66`,
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -232,7 +556,6 @@ function AIChat({ metrics, deviceId }) {
   const mountedRef = useRef(false);
 
   useEffect(() => {
-    // skip the initial mount so the page doesn't jump on load
     if (!mountedRef.current) {
       mountedRef.current = true;
       return;
@@ -246,24 +569,14 @@ function AIChat({ metrics, deviceId }) {
     setInput("");
     setMessages((m) => [...m, { role: "user", text: userMsg }]);
     setLoading(true);
-
     try {
       const res = await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/api/ai/chat`,
-        {
-          message: userMsg,
-          history: messages,
-          deviceId: deviceId,
-        },
-        {
-          withCredentials: true,
-        },
+        { message: userMsg, history: messages, deviceId },
+        { withCredentials: true },
       );
-
-      if (res.data.success) {
-        const reply = res.data.data;
-        setMessages((m) => [...m, { role: "model", text: reply }]);
-      }
+      if (res.data.success)
+        setMessages((m) => [...m, { role: "model", text: res.data.data }]);
     } catch {
       setMessages((m) => [
         ...m,
@@ -286,7 +599,6 @@ function AIChat({ metrics, deviceId }) {
         minHeight: 320,
       }}
     >
-      {/* header */}
       <div
         className="px-5 py-4 flex items-center gap-3 border-b"
         style={{ borderColor: C.border }}
@@ -299,8 +611,6 @@ function AIChat({ metrics, deviceId }) {
           AI Microgrid Assistant
         </span>
       </div>
-
-      {/* messages */}
       <div
         className="flex-1 overflow-y-auto px-5 py-4 space-y-3 scrollbar-hide"
         style={{ maxHeight: 260 }}
@@ -340,8 +650,6 @@ function AIChat({ metrics, deviceId }) {
         )}
         <div ref={bottomRef} />
       </div>
-
-      {/* input */}
       <div
         className="px-4 py-4 flex gap-2 border-t"
         style={{ borderColor: C.border }}
@@ -399,8 +707,11 @@ export default function Dashboard() {
     connectivity: 0,
   });
   const [history, setHistory] = useState([]);
-
   const [activeAlerts, setActiveAlerts] = useState([]);
+
+  // ── running averages + trends computed from history ──────────
+  const avgs = useMemo(() => computeAvgs(history), [history]);
+  const trends = useMemo(() => computeTrends(history), [history]);
 
   const mapAlertToUI = (alert) => {
     const severityMap = {
@@ -408,7 +719,6 @@ export default function Dashboard() {
       WARN: "#faad14",
       INFO: "rgba(255,255,255,0.25)",
     };
-
     const titleMap = {
       ZERO_OUTPUT: "No Power Output",
       LOW_PERFORMANCE: "Low Performance",
@@ -431,9 +741,8 @@ export default function Dashboard() {
       HEALTH_POOR: "Poor Health",
       HEALTH_DROP: "Health Drop",
     };
-
     return {
-      id: alert._id || alert.timestamp, // fallback for real-time alerts
+      id: alert._id || alert.timestamp,
       title: titleMap[alert.type] || alert.type.replaceAll("_", " "),
       body: alert.message,
       level: alert.severity,
@@ -463,6 +772,7 @@ export default function Dashboard() {
         battery: parsed.battery || 0,
         connectivity: parsed.connectivity || 0,
       });
+      // ── NEW: update history so avgs recompute automatically ──
       setHistory(d.history);
     };
     socket.on("metric", handler);
@@ -493,9 +803,8 @@ export default function Dashboard() {
           `${import.meta.env.VITE_BACKEND_URL}/api/alerts/get-alerts/${params.id}`,
           { withCredentials: true },
         );
-        if (res.data.success) {
+        if (res.data.success)
           setActiveAlerts(res.data.alerts.map(mapAlertToUI));
-        }
       } catch (e) {
         console.log(e);
       }
@@ -508,19 +817,22 @@ export default function Dashboard() {
     const handler = (data) => {
       const d = typeof data === "string" ? JSON.parse(data) : data;
       const parsed = d.alerts.map(mapAlertToUI);
-
-      setActiveAlerts((prev) => {
-        return [
+      setActiveAlerts((prev) =>
+        [
           ...parsed,
           ...prev.filter((a) => !parsed.some((p) => p.id === a.id)),
-        ].slice(0, 10);
-      });
+        ].slice(0, 10),
+      );
     };
     socket.on("alerts", handler);
     return () => socket.off("alerts", handler);
   }, [socketSlice.socket]);
 
   const effPct = Number(pct(metrics.efficiency));
+  const avgEffPct = avgs ? Number(avgs.efficiency * 100) : null;
+  const avgIrradPct = avgs
+    ? Math.min((avgs.irradiance / 1000) * 100, 100)
+    : null;
 
   return (
     <div
@@ -530,7 +842,6 @@ export default function Dashboard() {
         fontFamily: "'DM Mono', 'Fira Code', monospace",
       }}
     >
-      {/* ── background grid — fixed so navbar is never clipped ── */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
@@ -539,8 +850,6 @@ export default function Dashboard() {
           zIndex: 0,
         }}
       />
-
-      {/* ── ambient blobs — fixed, never push content ── */}
       <div
         className="fixed pointer-events-none"
         style={{
@@ -603,6 +912,17 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4 mt-1">
+            {/* ── NEW: history window badge ── */}
+            {history.length > 0 && (
+              <div className="text-right">
+                <div className="text-[9px] text-white/25 uppercase tracking-widest">
+                  History window
+                </div>
+                <div className="text-xs font-bold text-white/50">
+                  {history.length} readings
+                </div>
+              </div>
+            )}
             <div className="text-right">
               <div className="text-[10px] text-white/30 uppercase tracking-widest">
                 Voltage
@@ -633,13 +953,14 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── STAT CARDS ── */}
+        {/* ── STAT CARDS — now with avg ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <StatCard
             icon={Zap}
             title="Voltage"
             history={history}
             value={Number(metrics?.voltage || 0).toFixed(2)}
+            avgValue={avgs ? avgs.voltage.toFixed(2) : null}
             unit="V"
             change={getChange("voltage", history)}
             color={C.green}
@@ -650,6 +971,7 @@ export default function Dashboard() {
             title="Current"
             history={history}
             value={Number(metrics?.current || 0).toFixed(2)}
+            avgValue={avgs ? avgs.current.toFixed(2) : null}
             unit="A"
             change={getChange("current", history)}
             color={C.blue}
@@ -660,6 +982,7 @@ export default function Dashboard() {
             title="Power Output"
             history={history}
             value={Number(metrics?.power || 0).toFixed(2)}
+            avgValue={avgs ? avgs.power.toFixed(2) : null}
             unit="W"
             change={getChange("power", history)}
             color={C.sun}
@@ -670,6 +993,7 @@ export default function Dashboard() {
             title="Expected Power"
             history={history}
             value={Number(metrics?.expected_power || 0).toFixed(2)}
+            avgValue={avgs ? avgs.expected_power.toFixed(2) : null}
             unit="W"
             change={getChange("expected_power", history)}
             color="#a78bfa"
@@ -680,6 +1004,7 @@ export default function Dashboard() {
             title="Health Score"
             history={history}
             value={Number(metrics?.health_score || 0).toFixed(2)}
+            avgValue={avgs ? avgs.health_score.toFixed(2) : null}
             unit=""
             change={getChange("health_score", history)}
             color={C.red}
@@ -689,7 +1014,6 @@ export default function Dashboard() {
 
         {/* ── POWER CHART + EFFICIENCY ── */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* power chart — 2 cols */}
           <div
             className="lg:col-span-2 rounded-2xl p-6"
             style={{
@@ -705,6 +1029,12 @@ export default function Dashboard() {
                 </h3>
                 <p className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">
                   Real-time · 30 min window
+                  {/* ── NEW: avg power inline ── */}
+                  {avgs && (
+                    <span className="ml-3" style={{ color: `${C.green}88` }}>
+                      · avg {avgs.power.toFixed(1)} W
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-4 text-[10px] text-white/40">
@@ -750,12 +1080,23 @@ export default function Dashboard() {
                     dot={false}
                     name="Expected"
                   />
+                  {/* ── NEW: avg power reference line via a flat data line ── */}
+                  {avgs && (
+                    <Line
+                      dataKey={() => avgs.power}
+                      stroke={`${C.green}44`}
+                      strokeWidth={1}
+                      strokeDasharray="2 6"
+                      dot={false}
+                      name="Avg Power"
+                    />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* efficiency gauges */}
+          {/* efficiency gauges — with avg */}
           <div
             className="rounded-2xl p-6 flex flex-col gap-5"
             style={{
@@ -768,9 +1109,15 @@ export default function Dashboard() {
               Efficiency & Irradiance
             </h3>
             <div className="flex justify-around flex-1 items-center">
-              <RingGauge value={effPct} color={C.sun} label="Efficiency" />
+              <RingGauge
+                value={effPct}
+                avgValue={avgEffPct}
+                color={C.sun}
+                label="Efficiency"
+              />
               <RingGauge
                 value={Math.min((metrics.irradiance / 1000) * 100, 100)}
+                avgValue={avgIrradPct}
                 color={C.blue}
                 label="Irradiance"
               />
@@ -788,7 +1135,7 @@ export default function Dashboard() {
 
         {/* ── HEALTH + ALERTS + AI ── */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* health factors */}
+          {/* health factors — with avg ticks */}
           <div
             className="rounded-2xl p-6 space-y-5"
             style={{
@@ -797,28 +1144,46 @@ export default function Dashboard() {
               border: `1px solid ${C.border}`,
             }}
           >
-            <h3 className="text-sm font-bold text-white">Health Factors</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white">Health Factors</h3>
+              {/* ── NEW: avg health chip ── */}
+              {avgs && (
+                <span
+                  className="text-[9px] px-2 py-1 rounded-full"
+                  style={{
+                    background: "rgba(34,217,122,0.08)",
+                    color: `${C.green}99`,
+                    border: "1px solid rgba(34,217,122,0.15)",
+                  }}
+                >
+                  avg health {avgs.health_score.toFixed(0)}
+                </span>
+              )}
+            </div>
             <BarRow
               label="Efficiency"
               value={metrics.efficiency * 100}
+              avgValue={avgs ? avgs.efficiency * 100 : null}
               color={C.green}
             />
             <BarRow
               label="Sensor Confidence"
               value={metrics.trust_score * 100}
+              avgValue={avgs ? avgs.trust_score * 100 : null}
               color={C.blue}
             />
             <BarRow
               label="Battery Level"
               value={metrics.battery}
+              avgValue={avgs ? avgs.battery : null}
               color={C.sun}
             />
             <BarRow
               label="Connectivity"
               value={metrics.connectivity}
+              avgValue={avgs ? avgs.connectivity : null}
               color="#a78bfa"
             />
-            {/* temp chip */}
             <div
               className="flex items-center justify-between mt-2 pt-4 border-t"
               style={{ borderColor: C.border }}
@@ -826,21 +1191,34 @@ export default function Dashboard() {
               <span className="text-[10px] text-white/40 uppercase tracking-widest">
                 Temperature
               </span>
-              <div
-                className="px-3 py-1.5 rounded-lg text-sm font-black"
-                style={{
-                  background:
-                    metrics.temperature > 60 ? `${C.red}18` : `${C.green}18`,
-                  color: metrics.temperature > 60 ? C.red : C.green,
-                  border: `1px solid ${metrics.temperature > 60 ? C.red : C.green}30`,
-                }}
-              >
-                {Number(metrics.temperature).toFixed(1)}°C
+              <div className="flex items-center gap-3">
+                {/* ── NEW: avg temp ── */}
+                {avgs && (
+                  <span className="text-[9px] text-white/30">
+                    avg{" "}
+                    <span
+                      style={{ color: avgs.temperature > 60 ? C.red : C.green }}
+                    >
+                      {avgs.temperature.toFixed(1)}°C
+                    </span>
+                  </span>
+                )}
+                <div
+                  className="px-3 py-1.5 rounded-lg text-sm font-black"
+                  style={{
+                    background:
+                      metrics.temperature > 60 ? `${C.red}18` : `${C.green}18`,
+                    color: metrics.temperature > 60 ? C.red : C.green,
+                    border: `1px solid ${metrics.temperature > 60 ? C.red : C.green}30`,
+                  }}
+                >
+                  {Number(metrics.temperature).toFixed(1)}°C
+                </div>
               </div>
             </div>
           </div>
 
-          {/* smart alerts */}
+          {/* smart alerts — unchanged */}
           <div
             className="rounded-2xl p-6"
             style={{
@@ -894,9 +1272,192 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* AI chat */}
           <AIChat metrics={metrics} deviceId={params.id} />
         </div>
+
+        {/* ── TRENDS SECTION ── */}
+        {trends && (
+          <div className="space-y-4">
+            {/* section header */}
+            <div className="flex items-center gap-3">
+              <div
+                className="w-1 h-6 rounded-full"
+                style={{
+                  background: `linear-gradient(180deg, #f5a623, #f5a62322)`,
+                }}
+              />
+              <h2 className="text-sm font-black text-white uppercase tracking-widest">
+                Trend Analysis
+              </h2>
+              <span className="text-[9px] text-white/25 uppercase tracking-widest ml-1">
+                · {history.length} readings window
+              </span>
+            </div>
+
+            {/* 6 trend cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              <TrendCard
+                label="Power"
+                unit="W"
+                metricKey="power"
+                trendData={trends.power}
+                history={history}
+                color={C.sun}
+              />
+              <TrendCard
+                label="Efficiency"
+                unit=""
+                metricKey="efficiency"
+                trendData={trends.efficiency}
+                history={history}
+                color={C.green}
+              />
+              <TrendCard
+                label="Health"
+                unit=""
+                metricKey="health_score"
+                trendData={trends.health_score}
+                history={history}
+                color={C.red}
+              />
+              <TrendCard
+                label="Temperature"
+                unit="°C"
+                metricKey="temperature"
+                trendData={trends.temperature}
+                history={history}
+                color="#f97316"
+              />
+              <TrendCard
+                label="Irradiance"
+                unit="W/m²"
+                metricKey="irradiance"
+                trendData={trends.irradiance}
+                history={history}
+                color={C.blue}
+              />
+              <TrendCard
+                label="Trust Score"
+                unit=""
+                metricKey="trust_score"
+                trendData={trends.trust_score}
+                history={history}
+                color="#a78bfa"
+              />
+            </div>
+
+            {/* summary table */}
+            <div
+              className="rounded-2xl p-5"
+              style={{
+                background:
+                  "linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))",
+                border: `1px solid ${C.border}`,
+              }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-white">Trend Summary</h3>
+                <div className="flex items-center gap-4 text-[9px] text-white/25 uppercase tracking-widest">
+                  <span className="flex items-center gap-1">
+                    <span style={{ color: C.green }}>↗</span> Rising
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span style={{ color: C.red }}>↘</span> Falling
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span style={{ color: C.blue }}>→</span> Stable
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span style={{ color: "#f5a623" }}>⚡</span> Volatile
+                  </span>
+                </div>
+              </div>
+              <TrendSummaryRow
+                label="Power Output"
+                trendData={trends.power}
+                color={C.sun}
+              />
+              <TrendSummaryRow
+                label="Efficiency"
+                trendData={trends.efficiency}
+                color={C.green}
+              />
+              <TrendSummaryRow
+                label="Health Score"
+                trendData={trends.health_score}
+                color={C.red}
+              />
+              <TrendSummaryRow
+                label="Temperature"
+                trendData={trends.temperature}
+                color="#f97316"
+              />
+              <TrendSummaryRow
+                label="Irradiance"
+                trendData={trends.irradiance}
+                color={C.blue}
+              />
+              <TrendSummaryRow
+                label="Trust Score"
+                trendData={trends.trust_score}
+                color="#a78bfa"
+              />
+
+              {/* overall system trend verdict */}
+              {(() => {
+                const risingCount = Object.values(trends).filter(
+                  (t) => t.trend.label === "Rising",
+                ).length;
+                const fallingCount = Object.values(trends).filter(
+                  (t) => t.trend.label === "Falling",
+                ).length;
+                const volCount = Object.values(trends).filter(
+                  (t) => t.trend.label === "Volatile",
+                ).length;
+                const verdict =
+                  volCount >= 3
+                    ? {
+                        text: "System is highly volatile — sensor readings unstable",
+                        color: "#f5a623",
+                      }
+                    : risingCount >= 4
+                      ? {
+                          text: "System trending positively across most metrics",
+                          color: C.green,
+                        }
+                      : fallingCount >= 4
+                        ? {
+                            text: "System degrading — multiple metrics declining",
+                            color: C.red,
+                          }
+                        : {
+                            text: "System is stable with mixed metric trends",
+                            color: C.blue,
+                          };
+                return (
+                  <div
+                    className="mt-4 pt-4 border-t flex items-center gap-3"
+                    style={{ borderColor: "rgba(255,255,255,0.06)" }}
+                  >
+                    <div
+                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      style={{
+                        background: verdict.color,
+                        boxShadow: `0 0 6px ${verdict.color}`,
+                      }}
+                    />
+                    <span
+                      className="text-[11px] font-bold"
+                      style={{ color: verdict.color }}
+                    >
+                      {verdict.text}
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
