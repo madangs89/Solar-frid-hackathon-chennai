@@ -13,6 +13,7 @@ import { connectRedis } from "./config/redis.js";
 import authRouter from "./routes/auth.routes.js";
 import stationRouter from "./routes/station.routes.js";
 import deviceRouter from "./routes/device.routes.js";
+import chatRouter from "./routes/chat.routes.js";
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use("/api/metric", metricRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/station", stationRouter);
 app.use("/api/device", deviceRouter);
+app.use("/api/ai", chatRouter);
 
 app.get("/", (req, res) => {
   res.send("<h1>hello</h1>");

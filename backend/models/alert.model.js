@@ -4,25 +4,22 @@ const AlertSchema = new mongoose.Schema({
 
   type: {
     type: String,
-    enum: [
-      "inefficiency",
-      "sensor_error",
-      "maintenance",
-      "battery_low",
-      "ai_analysis",
-    ],
   },
 
   message: String,
 
   severity: {
     type: String,
-    enum: ["info", "warning", "critical"],
   },
 
   resolved: {
     type: Boolean,
     default: false,
+  },
+
+  deviceId: {
+    type: String,
+    required: true,
   },
 
   timestamp: {

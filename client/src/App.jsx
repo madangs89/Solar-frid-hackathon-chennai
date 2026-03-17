@@ -1,7 +1,6 @@
 import MainLayout from "./layout/MainLayout";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import Dashboard from "./pages/DashboardPage";
-import DevicesPage from "./pages/DevicesPage";
 import AlertsPage from "./pages/AlertsPage";
 import LogsPage from "./pages/LogsPage";
 import Hero from "./pages/Hero";
