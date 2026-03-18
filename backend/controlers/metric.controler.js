@@ -380,7 +380,6 @@ export const addMetric = async (req, res) => {
     if (alerts.length > 0) {
       io.to(userId).emit("alerts", { deviceId, alerts });
       await Alert.insertMany(alerts);
-      console.log({ alerts });
     }
     return res.status(200).json({
       message: "Collected the data successfully",
@@ -414,14 +413,10 @@ export const allLogs = async (req, res) => {
 
     const allDeviceIds = await Device.find({ stationId }).select("_id").lean();
 
-    console.log({ allDeviceIds });
-
     for (const device of allDeviceIds) {
       const deviceId = device._id.toString();
       const key = `userId:${userId}:deviceId:${deviceId}`;
       const cachedValueFromRedis = await pubClient.get(key);
-
-      console.log(cachedValueFromRedis);
 
       if (cachedValueFromRedis) {
         const parsed = JSON.parse(cachedValueFromRedis);

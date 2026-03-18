@@ -1230,7 +1230,7 @@ export default function Dashboard() {
             <h3 className="text-sm font-bold text-white mb-5">Smart Alerts</h3>
             <div className="space-y-4">
               {activeAlerts && activeAlerts.length > 0 ? (
-                activeAlerts.map((a) => (
+                activeAlerts.slice(0, 3).map((a) => (
                   <div
                     key={a.id}
                     className="flex gap-3 p-3 rounded-xl"
