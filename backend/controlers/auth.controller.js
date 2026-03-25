@@ -137,8 +137,8 @@ export const updateCurrentStation = async (req, res) => {
 
     await userDetails.save();
 
-    return res.status(201).json({
-      message: "Successfully created",
+    return res.status(200).json({
+      message: "Current station updated successfully",
       success: true,
       user: userDetails,
     });
